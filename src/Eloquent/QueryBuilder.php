@@ -548,6 +548,8 @@ class QueryBuilder extends Builder
     }
 
     /**
+     * Get the oddness errors query.
+     *
      * @return \Illuminate\Database\Query\Builder
      */
     protected function getOddnessQuery()
@@ -564,6 +566,8 @@ class QueryBuilder extends Builder
     }
 
     /**
+     * Get the duplicates errors query.
+     *
      * @return \Illuminate\Database\Query\Builder
      */
     protected function getDuplicatesQuery()
@@ -588,6 +592,8 @@ class QueryBuilder extends Builder
     }
 
     /**
+     * Get the wrong parent query.
+     *
      * @return \Illuminate\Database\Query\Builder
      */
     protected function getWrongParentQuery()
@@ -617,6 +623,8 @@ class QueryBuilder extends Builder
     }
 
     /**
+     * Get the missing parent query.
+     *
      * @return \Illuminate\Database\Query\Builder
      */
     protected function getMissingParentQuery()
@@ -629,7 +637,7 @@ class QueryBuilder extends Builder
                 $keyName = $this->wrappedKey();
                 $parentIdName = $this->query->raw($this->model->getParentIdName());
 
-                $existsCheck = $this->model
+                $query = $this->model
                     ->newNestedSetQuery()
                     ->toBase()
                     ->selectRaw('1')
@@ -637,10 +645,10 @@ class QueryBuilder extends Builder
                     ->whereRaw("{$table}.{$parentIdName} = p.{$keyName}")
                     ->limit(1);
 
-                $this->model->applyNestedSetScope($existsCheck, 'p');
+                $this->model->applyNestedSetScope($query, 'p');
 
                 $inner->whereRaw("{$parentIdName} is not null")
-                      ->addWhereExistsQuery($existsCheck, 'and', true);
+                      ->addWhereExistsQuery($query, 'and', true);
             });
     }
 

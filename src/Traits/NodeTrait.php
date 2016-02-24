@@ -1123,7 +1123,7 @@ trait NodeTrait
      * @param  \Illuminate\Database\Eloquent\Builder  $query
      * @param  string                                 $table
      *
-     * @return \Arcanedev\LaravelNestedSet\Eloquent\QueryBuilder
+     * @return \Arcanedev\LaravelNestedSet\Eloquent\QueryBuilder|\Illuminate\Database\Query\Builder
      */
     public function applyNestedSetScope($query, $table = null)
     {
