@@ -106,6 +106,160 @@ trait NodeTrait
     }
 
     /* ------------------------------------------------------------------------------------------------
+     |  Eloquent Functions
+     | ------------------------------------------------------------------------------------------------
+     */
+    /**
+     * Get the database connection for the model.
+     *
+     * @return \Illuminate\Database\Connection
+     */
+    abstract public function getConnection();
+
+    /**
+     * Get the table associated with the model.
+     *
+     * @return string
+     */
+    abstract public function getTable();
+
+    /**
+     * Get the value of the model's primary key.
+     *
+     * @return mixed
+     */
+    abstract public function getKey();
+
+    /**
+     * Get the primary key for the model.
+     *
+     * @return string
+     */
+    abstract public function getKeyName();
+
+    /**
+     * Get a plain attribute (not a relationship).
+     *
+     * @param  string  $key
+     *
+     * @return mixed
+     */
+    abstract public function getAttributeValue($key);
+
+    /**
+     * Set the array of model attributes. No checking is done.
+     *
+     * @param  array  $attributes
+     * @param  bool   $sync
+     *
+     * @return self
+     */
+    abstract public function setRawAttributes(array $attributes, $sync = false);
+
+    /**
+     * Set the specific relationship in the model.
+     *
+     * @param  string  $relation
+     * @param  mixed   $value
+     *
+     * @return self
+     */
+    abstract public function setRelation($relation, $value);
+
+    /**
+     * Get a relationship.
+     *
+     * @param  string  $key
+     *
+     * @return mixed
+     */
+    abstract public function getRelationValue($key);
+
+    /**
+     * Determine if the model or given attribute(s) have been modified.
+     *
+     * @param  array|string|null  $attributes
+     *
+     * @return bool
+     */
+    abstract public function isDirty($attributes = null);
+
+    /**
+     * Fill the model with an array of attributes.
+     *
+     * @param  array  $attributes
+     *
+     * @return self
+     *
+     * @throws \Illuminate\Database\Eloquent\MassAssignmentException
+     */
+    abstract public function fill(array $attributes);
+
+    /**
+     * Save the model to the database.
+     *
+     * @param  array  $options
+     *
+     * @return bool
+     */
+    abstract public function save(array $options = []);
+
+    /**
+     * Get a new query builder for the model's table.
+     *
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    abstract public function newQuery();
+
+    /* ------------------------------------------------------------------------------------------------
+     |  Relationships
+     | ------------------------------------------------------------------------------------------------
+     */
+    /**
+     * Relation to the parent.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
+    public function parent()
+    {
+        return $this->belongsTo(get_class($this), $this->getParentIdName())
+            ->setModel($this);
+    }
+
+    /**
+     * Relation to children.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function children()
+    {
+        return $this->hasMany(get_class($this), $this->getParentIdName())
+            ->setModel($this);
+    }
+
+    /**
+     * Get query for descendants of the node.
+     *
+     * @return \Arcanedev\LaravelNestedSet\Eloquent\DescendantsRelation
+     */
+    public function descendants()
+    {
+        return new DescendantsRelation($this->newScopedQuery(), $this);
+    }
+
+    /**
+     * Get query for siblings of the node.
+     *
+     * @return \Arcanedev\LaravelNestedSet\Eloquent\QueryBuilder
+     */
+    public function siblings()
+    {
+        return $this->newScopedQuery()
+            ->where($this->getKeyName(), '<>', $this->getKey())
+            ->where($this->getParentIdName(), '=', $this->getParentId());
+    }
+
+    /* ------------------------------------------------------------------------------------------------
      |  Getters & Setters
      | ------------------------------------------------------------------------------------------------
      */
@@ -227,6 +381,29 @@ trait NodeTrait
     }
 
     /**
+     * Set the value of model's parent id key.
+     *
+     * Behind the scenes node is appended to found parent node.
+     *
+     * @param  int  $value
+     *
+     * @throws Exception If parent node doesn't exists
+     */
+    public function setParentIdAttribute($value)
+    {
+        if ($this->getParentId() == $value) return;
+
+        if ($value) {
+            /** @var self $node */
+            $node = $this->newScopedQuery()->findOrFail($value);
+
+            $this->appendToNode($node);
+        } else {
+            $this->makeRoot();
+        }
+    }
+
+    /**
      * Get the boundaries.
      *
      * @return array
@@ -256,7 +433,7 @@ trait NodeTrait
      */
     public function getNextNode(array $columns = ['*'])
     {
-        return $this->nextNodes()->first($columns);
+        return $this->nextNodes()->defaultOrder()->first($columns);
     }
 
     /**
@@ -269,7 +446,7 @@ trait NodeTrait
      */
     public function getPrevNode(array $columns = ['*'])
     {
-        return $this->prevNodes()->first($columns);
+        return $this->prevNodes()->defaultOrder('desc')->first($columns);
     }
 
     /**
@@ -283,7 +460,7 @@ trait NodeTrait
     {
         return $this->newScopedQuery()
             ->defaultOrder()
-            ->ancestorsOf($this->getKey(), $columns);
+            ->ancestorsOf($this, $columns);
     }
 
     /**
@@ -307,7 +484,7 @@ trait NodeTrait
      */
     public function getSiblings(array $columns = ['*'])
     {
-        return $this->siblings()->defaultOrder()->get($columns);
+        return $this->siblings()->get($columns);
     }
 
     /**
@@ -343,7 +520,7 @@ trait NodeTrait
      */
     public function getNextSibling(array $columns = ['*'])
     {
-        return $this->nextSiblings()->first($columns);
+        return $this->nextSiblings()->defaultOrder()->first($columns);
     }
 
     /**
@@ -355,7 +532,7 @@ trait NodeTrait
      */
     public function getPrevSibling(array $columns = ['*'])
     {
-        return $this->prevSiblings()->reversed()->first($columns);
+        return $this->prevSiblings()->defaultOrder('desc')->first($columns);
     }
 
     /**
@@ -365,9 +542,9 @@ trait NodeTrait
      */
     public function getNodeHeight()
     {
-        return $this->exists
-            ? $this->getRgt() - $this->getLft() + 1
-            : 2;
+        if ( ! $this->exists) return 2;
+
+        return $this->getRgt() - $this->getLft() + 1;
     }
 
     /**
@@ -401,11 +578,19 @@ trait NodeTrait
      *
      * @return $this
      */
-    protected function setAction($action)
+    protected function setNodeAction($action)
     {
         $this->pending = func_get_args();
 
         return $this;
+    }
+
+    /**
+     * @return bool
+     */
+    protected function actionRaw()
+    {
+        return true;
     }
 
     /**
@@ -427,43 +612,7 @@ trait NodeTrait
         $parameters    = $this->pending;
 
         $this->pending = null;
-        $this->moved   = call_user_func_array([ $this, $method ], $parameters);
-    }
-
-    /* ------------------------------------------------------------------------------------------------
-     |  Relationships
-     | ------------------------------------------------------------------------------------------------
-     */
-    /**
-     * Relation to the parent.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
-     */
-    public function parent()
-    {
-        return $this->belongsTo(get_class($this), $this->getParentIdName())
-            ->setModel($this);
-    }
-
-    /**
-     * Relation to children.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
-     */
-    public function children()
-    {
-        return $this->hasMany(get_class($this), $this->getParentIdName())
-            ->setModel($this);
-    }
-
-    /**
-     * Get query for descendants of the node.
-     *
-     * @return \Arcanedev\LaravelNestedSet\Eloquent\DescendantsRelation
-     */
-    public function descendants()
-    {
-        return new DescendantsRelation($this->newScopedQuery(), $this);
+        $this->moved   = call_user_func_array([$this, $method], $parameters);
     }
 
     /* ------------------------------------------------------------------------------------------------
@@ -485,9 +634,8 @@ trait NodeTrait
             return true;
         }
 
-        if ($this->isRoot()) {
-            return false;
-        }
+        if ($this->isRoot()) return false;
+
 
         // Reset parent object
         $this->setParent(null);
@@ -548,44 +696,12 @@ trait NodeTrait
      */
     public function refreshNode()
     {
-        if ( ! $this->exists || static::$actionsPerformed === 0) {
-            return;
-        }
+        if ( ! $this->exists || static::$actionsPerformed === 0) return;
 
         $attributes = $this->newNestedSetQuery()->getNodeData($this->getKey());
 
         $this->attributes = array_merge($this->attributes, $attributes);
         $this->original   = array_merge($this->original,   $attributes);
-    }
-
-    /**
-     * Get query for siblings of the node.
-     *
-     * @param  mixed  $dir
-     *
-     * @return \Arcanedev\LaravelNestedSet\Eloquent\QueryBuilder
-     */
-    public function siblings($dir = null)
-    {
-        switch ($dir) {
-            case NestedSet::AFTER:
-                $query = $this->nextNodes();
-                break;
-
-            case NestedSet::BEFORE:
-                $query = $this->prevNodes();
-                break;
-
-            default:
-                $query = $this->newScopedQuery()
-                    ->defaultOrder()
-                    ->where($this->getKeyName(), '<>', $this->getKey());
-                break;
-        }
-
-        $query->where($this->getParentIdName(), '=', $this->getParentId());
-
-        return $query;
     }
 
     /**
@@ -595,7 +711,8 @@ trait NodeTrait
      */
     public function nextSiblings()
     {
-        return $this->siblings(NestedSet::AFTER);
+        return $this->nextNodes()
+            ->where($this->getParentIdName(), '=', $this->getParentId());
     }
 
     /**
@@ -605,7 +722,8 @@ trait NodeTrait
      */
     public function prevSiblings()
     {
-        return $this->siblings(NestedSet::BEFORE);
+        return $this->prevNodes()
+            ->where($this->getParentIdName(), '=', $this->getParentId());
     }
 
     /**
@@ -616,8 +734,7 @@ trait NodeTrait
     public function nextNodes()
     {
         return $this->newScopedQuery()
-                    ->whereIsAfter($this->getKey())
-                    ->defaultOrder();
+            ->where($this->getLftName(), '>', $this->getLft());
     }
 
     /**
@@ -628,8 +745,7 @@ trait NodeTrait
     public function prevNodes()
     {
         return $this->newScopedQuery()
-                    ->whereIsBefore($this->getKey())
-                    ->reversed();
+            ->where($this->getLftName(), '<', $this->getLft());
     }
 
     /**
@@ -640,8 +756,7 @@ trait NodeTrait
     public function ancestors()
     {
         return $this->newScopedQuery()
-                    ->whereAncestorOf($this->getKey())
-                    ->defaultOrder();
+            ->whereAncestorOf($this)->defaultOrder();
     }
 
     /**
@@ -651,7 +766,7 @@ trait NodeTrait
      */
     public function makeRoot()
     {
-        return $this->setAction('root');
+        return $this->setNodeAction('root');
     }
 
     /**
@@ -729,7 +844,7 @@ trait NodeTrait
 
         $this->setParent($parent)->dirtyBounds();
 
-        return $this->setAction('appendOrPrepend', $parent, $prepend);
+        return $this->setNodeAction('appendOrPrepend', $parent, $prepend);
     }
 
     /**
@@ -772,7 +887,7 @@ trait NodeTrait
 
         $this->dirtyBounds();
 
-        return $this->setAction('beforeOrAfter', $node, $after);
+        return $this->setNodeAction('beforeOrAfter', $node, $after);
     }
 
     /**
@@ -796,14 +911,26 @@ trait NodeTrait
      */
     public function insertBeforeNode(self $node)
     {
-        if ( ! $this->beforeNode($node)->save()) {
-            return false;
-        }
+        if ( ! $this->beforeNode($node)->save()) return false;
 
         // We'll update the target node since it will be moved
         $node->refreshNode();
 
         return true;
+    }
+
+    /**
+     * @param  int  $lft
+     * @param  int  $rgt
+     * @param  int  $parentId
+     *
+     * @return self
+     */
+    public function rawNode($lft, $rgt, $parentId)
+    {
+        $this->setLft($lft)->setRgt($rgt)->setParentId($parentId);
+
+        return $this->setNodeAction('raw');
     }
 
     /**
@@ -815,11 +942,14 @@ trait NodeTrait
      */
     public function up($amount = 1)
     {
-        if ($sibling = $this->prevSiblings()->skip($amount - 1)->first()) {
-            return $this->insertBeforeNode($sibling);
-        }
+        $sibling = $this->prevSiblings()
+                        ->defaultOrder('desc')
+                        ->skip($amount - 1)
+                        ->first();
 
-        return false;
+        if ( ! $sibling) return false;
+
+        return $this->insertBeforeNode($sibling);
     }
 
     /**
@@ -831,11 +961,14 @@ trait NodeTrait
      */
     public function down($amount = 1)
     {
-        if ($sibling = $this->nextSiblings()->skip($amount - 1)->first()) {
-            return $this->insertAfterNode($sibling);
-        }
+        $sibling = $this->nextSiblings()
+                        ->defaultOrder()
+                        ->skip($amount - 1)
+                        ->first();
 
-        return false;
+        if ( ! $sibling) return false;
+
+        return $this->insertAfterNode($sibling);
     }
 
     /**
@@ -868,9 +1001,7 @@ trait NodeTrait
         $updated = $this->newNestedSetQuery()
                         ->moveNode($this->getKey(), $position) > 0;
 
-        if ($updated) {
-            $this->refreshNode();
-        }
+        if ($updated) $this->refreshNode();
 
         return $updated;
     }
@@ -902,14 +1033,11 @@ trait NodeTrait
         $lft = $this->getLft();
         $rgt = $this->getRgt();
 
-        $method = $this->usesSoftDelete() && $this->forceDeleting
+        $method = ($this->usesSoftDelete() && $this->forceDeleting)
             ? 'forceDelete'
             : 'delete';
 
-        $this->newQuery()
-             ->applyNestedSetScope()
-             ->whereNodeBetween([ $lft + 1, $rgt ])
-             ->{$method}();
+        $this->descendants()->{$method}();
 
         if ($this->hardDeleting()) {
             $height = $rgt - $lft + 1;
@@ -926,16 +1054,14 @@ trait NodeTrait
     /**
      * Restore the descendants.
      *
-     * @param $deletedAt
+     * @param  mixed  $deletedAt
      */
     protected function restoreDescendants($deletedAt)
     {
-        $this->newQuery()
-             ->applyNestedSetScope()
-             ->whereNodeBetween([ $this->getLft() + 1, $this->getRgt() ])
-             ->where($this->getDeletedAtColumn(), '>=', $deletedAt)
-             ->applyScopes()
-             ->restore();
+        $this->descendants()
+            ->where($this->getDeletedAtColumn(), '>=', $deletedAt)
+            ->applyScopes()
+            ->restore();
     }
 
     /**
@@ -953,6 +1079,8 @@ trait NodeTrait
     /**
      * Get a new base query that includes deleted nodes.
      *
+     * @param  string|null $table
+     *
      * @return \Arcanedev\LaravelNestedSet\Eloquent\QueryBuilder
      */
     public function newNestedSetQuery($table = null)
@@ -967,7 +1095,7 @@ trait NodeTrait
     /**
      * @param  string|null  $table
      *
-     * @return mixed
+     * @return \Arcanedev\LaravelNestedSet\Eloquent\QueryBuilder
      */
     public function newScopedQuery($table = null)
     {
@@ -975,10 +1103,10 @@ trait NodeTrait
     }
 
     /**
-     * @param  mixed   $query
-     * @param  string  $table
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @param  string                                 $table
      *
-     * @return mixed
+     * @return \Arcanedev\LaravelNestedSet\Eloquent\QueryBuilder
      */
     public function applyNestedSetScope($query, $table = null)
     {
@@ -1062,26 +1190,6 @@ trait NodeTrait
         }
 
         return $instance->setRelation('children', $relation);
-    }
-
-    /**
-     * Set the value of model's parent id key.
-     *
-     * Behind the scenes node is appended to found parent node.
-     *
-     * @param  int  $value
-     *
-     * @throws Exception If parent node doesn't exists
-     */
-    public function setParentIdAttribute($value)
-    {
-        if ($this->getParentId() == $value) return;
-
-        if ($value) {
-            $this->appendToNode($this->newScopedQuery()->findOrFail($value));
-        } else {
-            $this->makeRoot();
-        }
     }
 
     /* ------------------------------------------------------------------------------------------------
@@ -1187,6 +1295,10 @@ trait NodeTrait
         return ! $this->usesSoftDelete() || $this->forceDeleting;
     }
 
+    /* ------------------------------------------------------------------------------------------------
+     |  Assertion Functions
+     | ------------------------------------------------------------------------------------------------
+     */
     /**
      * Assert that the node is not a descendant.
      *
@@ -1204,6 +1316,8 @@ trait NodeTrait
     }
 
     /**
+     * Assert node exists.
+     *
      * @param  self  $node
      *
      * @return self
