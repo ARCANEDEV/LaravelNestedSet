@@ -4,6 +4,12 @@ use Arcanedev\LaravelNestedSet\Traits\NodeTrait;
 use Arcanedev\LaravelNestedSet\Utilities\NestedSet;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * Class     MenuItem
+ *
+ * @package  Arcanedev\LaravelNestedSet\Tests\Models
+ * @author   ARCANEDEV <arcanedev.maroc@gmail.com>
+ */
 class MenuItem extends Model
 {
     /* ------------------------------------------------------------------------------------------------
@@ -77,6 +83,7 @@ class MenuItem extends Model
     {
         return $this->insertBeforeNode($node);
     }
+
     /**
      * @param  self  $node
      *
@@ -88,6 +95,7 @@ class MenuItem extends Model
     {
         return $this->insertAfterNode($node);
     }
+
     /**
      * @param array $columns
      *
@@ -99,6 +107,7 @@ class MenuItem extends Model
     {
         return $this->getNextNode($columns);
     }
+
     /**
      * @param array $columns
      *
@@ -109,26 +118,5 @@ class MenuItem extends Model
     public function getPrev(array $columns = [ '*' ])
     {
         return $this->getPrevNode($columns);
-    }
-    /**
-     * @return string
-     */
-    public function getParentIdName()
-    {
-        return static::PARENT_ID;
-    }
-    /**
-     * @return string
-     */
-    public function getLftName()
-    {
-        return static::LFT;
-    }
-    /**
-     * @return string
-     */
-    public function getRgtName()
-    {
-        return static::RGT;
     }
 }
