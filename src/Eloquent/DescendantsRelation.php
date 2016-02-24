@@ -22,12 +22,16 @@ class DescendantsRelation extends Relation
      | ------------------------------------------------------------------------------------------------
      */
     /**
+     * The Eloquent query builder instance.
+     *
      * @var \Arcanedev\LaravelNestedSet\Eloquent\QueryBuilder
      */
     protected $query;
 
     /**
-     * @var NodeTrait|Model
+     * The parent model instance.
+     *
+     * @var \Arcanedev\LaravelNestedSet\NodeTrait
      */
     protected $parent;
 
@@ -51,11 +55,13 @@ class DescendantsRelation extends Relation
     }
 
     /**
+     * Add the constraints for a relationship query.
+     *
      * @param  \Illuminate\Database\Eloquent\Builder  $query
      * @param  \Illuminate\Database\Eloquent\Builder  $parent
-     * @param  array                                  $columns
+     * @param  array|mixed                            $columns
      *
-     * @return mixed
+     * @return \Illuminate\Database\Eloquent\Builder
      */
     public function getRelationQuery(
         EloquentBuilder $query,
