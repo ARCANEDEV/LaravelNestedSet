@@ -1,10 +1,9 @@
 <?php namespace Arcanedev\LaravelNestedSet\Eloquent;
 
-use Arcanedev\LaravelNestedSet\Utilities\NestedSet;
 use Arcanedev\LaravelNestedSet\Traits\NodeTrait;
+use Arcanedev\LaravelNestedSet\Utilities\NestedSet;
 use Arcanedev\LaravelNestedSet\Utilities\TreeHelper;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\Query\Builder as Query;
 use Illuminate\Database\Query\Expression;
@@ -23,7 +22,7 @@ class QueryBuilder extends Builder
      | ------------------------------------------------------------------------------------------------
      */
     /**
-     * @var \Arcanedev\LaravelNestedSet\Traits\NodeTrait|\Illuminate\Database\Eloquent\Model
+     * @var \Arcanedev\LaravelNestedSet\Traits\NodeTrait
      */
     protected $model;
 
@@ -45,7 +44,7 @@ class QueryBuilder extends Builder
 
         $query->where($this->model->getKeyName(), '=', $id);
 
-        $data = $query->first([
+        $data  = $query->first([
             $this->model->getLftName(),
             $this->model->getRgtName(),
         ]);
@@ -591,11 +590,10 @@ class QueryBuilder extends Builder
      */
     protected function getWrongParentQuery()
     {
-        $table = $this->wrappedTable();
-        $keyName = $this->wrappedKey();
+        $table        = $this->wrappedTable();
+        $keyName      = $this->wrappedKey();
         $parentIdName = $this->query->raw($this->model->getParentIdName());
-
-        $query = $this->model
+        $query        = $this->model
             ->newNestedSetQuery('c')
             ->toBase()
             ->from($this->query->raw("{$table} c, {$table} p, $table m"))

@@ -35,7 +35,7 @@ trait NodeTrait
     /**
      * Pending operation.
      *
-     * @var array
+     * @var array|null
      */
     protected $pending;
 
@@ -180,6 +180,16 @@ trait NodeTrait
      * @return mixed
      */
     abstract public function getRelationValue($key);
+
+    /**
+     * Create a new instance of the given model.
+     *
+     * @param  array  $attributes
+     * @param  bool   $exists
+     *
+     * @return self
+     */
+    abstract public function newInstance($attributes = [], $exists = false);
 
     /**
      * Determine if the model or given attribute(s) have been modified.
@@ -582,11 +592,12 @@ trait NodeTrait
      *
      * @param  string  $action
      *
-     * @return $this
+     * @return self
      */
     protected function setNodeAction($action)
     {
         $this->pending = func_get_args();
+        unset($action);
 
         return $this;
     }
@@ -1109,7 +1120,7 @@ trait NodeTrait
     }
 
     /**
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @param  \Illuminate\Database\Query\Builder  $query
      * @param  string                                 $table
      *
      * @return \Arcanedev\LaravelNestedSet\Eloquent\QueryBuilder
@@ -1120,7 +1131,7 @@ trait NodeTrait
             return $query;
         }
 
-        if ( ! $table) {
+        if ($table === null) {
             $table = $this->getTable();
         }
 
