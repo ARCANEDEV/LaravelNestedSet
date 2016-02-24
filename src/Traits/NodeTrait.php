@@ -1071,7 +1071,7 @@ trait NodeTrait
     /**
      * Restore the descendants.
      *
-     * @param  mixed  $deletedAt
+     * @param  \Carbon\Carbon  $deletedAt
      */
     protected function restoreDescendants($deletedAt)
     {
@@ -1120,7 +1120,7 @@ trait NodeTrait
     }
 
     /**
-     * @param  \Illuminate\Database\Query\Builder  $query
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
      * @param  string                                 $table
      *
      * @return \Arcanedev\LaravelNestedSet\Eloquent\QueryBuilder
