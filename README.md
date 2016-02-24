@@ -28,3 +28,7 @@
 *By [ARCANEDEV&copy;](http://www.arcanedev.net/)*
 
 Laravel NestedSet package provides a Nested Set Model for Laravel.
+
+### CREDITS
+
+This package is based on [lazychaser/laravel-nestedset](https://github.com/lazychaser/laravel-nestedset).
