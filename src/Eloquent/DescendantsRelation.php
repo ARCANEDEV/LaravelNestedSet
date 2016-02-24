@@ -39,7 +39,7 @@ class DescendantsRelation extends Relation
      * DescendantsRelation constructor.
      *
      * @param  \Arcanedev\LaravelNestedSet\Eloquent\QueryBuilder  $builder
-     * @param  \Illuminate\Database\Eloquent\Model                $model
+     * @param  \Illuminate\Database\Eloquent\Model|NodeTrait      $model
      */
     public function __construct(QueryBuilder $builder, Model $model)
     {

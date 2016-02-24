@@ -2,6 +2,7 @@
 
 use Arcanedev\LaravelNestedSet\Utilities\NestedSet;
 use Arcanedev\LaravelNestedSet\Traits\NodeTrait;
+use Arcanedev\LaravelNestedSet\Utilities\TreeHelper;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -368,30 +369,6 @@ class QueryBuilder extends Builder
     }
 
     /**
-     * Equivalent of `withoutRoot`.
-     *
-     * @return self
-     */
-    public function hasParent()
-    {
-        return $this->withoutRoot();
-    }
-
-    /**
-     * Get only nodes that have children.
-     *
-     * @return self
-     */
-    public function hasChildren()
-    {
-        list($lft, $rgt) = $this->wrappedColumns();
-
-        $this->query->whereRaw("{$rgt} > {$lft} + 1");
-
-        return $this;
-    }
-
-    /**
      * Order by node position.
      *
      * @param  string  $dir
@@ -689,80 +666,100 @@ class QueryBuilder extends Builder
 
     /**
      * Fixes the tree based on parentage info.
-     * Requires at least one root node. This will not update nodes with invalid parent.
+     * Nodes with invalid parent are saved as roots.
      *
-     * @return int The number of fixed nodes.
+     * @return int The number of fixed nodes
      */
     public function fixTree()
     {
-        $fixed = 0;
-        /** @var \Arcanedev\LaravelNestedSet\Eloquent\Collection $nodes */
-        $nodes = $this->model
-                      ->newNestedSetQuery()
-                      ->defaultOrder()
-                      ->get([
-                          $this->model->getKeyName(),
-                          $this->model->getParentIdName(),
-                          $this->model->getLftName(),
-                          $this->model->getRgtName(),
-                      ])
-                      ->groupBy($this->model->getParentIdName());
+        $columns   = [
+            $this->model->getKeyName(),
+            $this->model->getParentIdName(),
+            $this->model->getLftName(),
+            $this->model->getRgtName(),
+        ];
 
-        $cut   = self::reorderNodes($nodes, $fixed);
+        $dictionary = $this->defaultOrder()
+                ->get($columns)
+                ->groupBy($this->model->getParentIdName())
+                ->all();
 
-        // Saved nodes that have invalid parent as roots
-        while ( ! $nodes->isEmpty()) {
-            $parentId = $nodes->keys()->first();
-
-            foreach ($nodes[$parentId] as $model) {
-                /** @var NodeTrait $model */
-                $model->setParentId(null);
-            }
-
-            $cut = self::reorderNodes($nodes, $fixed, $parentId, $cut);
-        }
-
-        return $fixed;
+        return TreeHelper::fixNodes($dictionary);
     }
 
     /**
-     * @param  \Arcanedev\LaravelNestedSet\Eloquent\Collection $models
-     * @param  int                                             $fixed
-     * @param  mixed                                           $parentId
-     * @param int                                              $cut
+     * Rebuild the tree based on raw data.
+     * If item data does not contain primary key, new node will be created.
+     *
+     * @param  array  $data
+     * @param  bool   $delete  Whether to delete nodes that exists but not in the data array
      *
      * @return int
      */
-    protected static function reorderNodes(
-        Collection $models,
-        &$fixed,
-        $parentId = null,
-        $cut = 1
-    ) {
-        if ( ! isset($models[$parentId])) {
-            return $cut;
+    public function rebuildTree(array $data, $delete = false)
+    {
+        $existing   = $this->get()->getDictionary();
+        $dictionary = [];
+        $this->buildRebuildDictionary($dictionary, $data, $existing);
+
+        if ( ! empty($existing)) {
+            if ($delete) {
+                $this->model
+                    ->newScopedQuery()
+                    ->whereIn($this->model->getKeyName(), array_keys($existing))
+                    ->forceDelete();
+            } else {
+                /** @var NodeTrait $model */
+                foreach ($existing as $model) {
+                    $dictionary[$model->getParentId()][] = $model;
+                }
+            }
         }
 
-        /** @var  NodeTrait|Model  $model */
-        foreach ($models[$parentId] as $model) {
-            $model->setLft($cut);
+        return TreeHelper::fixNodes($dictionary);
+    }
 
-            $cut = self::reorderNodes($models, $fixed, $model->getKey(), $cut + 1);
+    /**
+     * @param  array  $dictionary
+     * @param  array  $data
+     * @param  array  $existing
+     * @param  mixed  $parentId
+     */
+    protected function buildRebuildDictionary(
+        array &$dictionary,
+        array $data,
+        array &$existing,
+        $parentId = null
+    ) {
+        $keyName = $this->model->getKeyName();
 
-            $model->setRgt($cut);
-
-            if ($model->isDirty()) {
-                $model->save();
-
-                $fixed++;
+        foreach ($data as $itemData) {
+            if ( ! isset($itemData[$keyName])) {
+                $model = $this->model->newInstance();
+                // We will save it as raw node since tree will be fixed
+                $model->rawNode(0, 0, $parentId);
+            } else {
+                if ( ! isset($existing[$key = $itemData[$keyName]])) {
+                    throw new ModelNotFoundException;
+                }
+                $model = $existing[$key];
+                unset($existing[$key]);
             }
 
-            ++$cut;
+            $model->fill($itemData)->save();
+            $dictionary[$parentId][] = $model;
+
+            if ( ! isset($itemData['children'])) {
+                continue;
+            }
+
+            $this->buildRebuildDictionary(
+                $dictionary,
+                $itemData['children'],
+                $existing,
+                $model->getKey()
+            );
         }
-
-        unset($models[$parentId]);
-
-        return $cut;
     }
 
     /**

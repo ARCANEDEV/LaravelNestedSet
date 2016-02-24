@@ -1,8 +1,8 @@
 <?php namespace Arcanedev\LaravelNestedSet\Eloquent;
 
-use Arcanedev\LaravelNestedSet\Utilities\NestedSet;
 use Arcanedev\LaravelNestedSet\Traits\NodeTrait;
-use Illuminate\Database\Eloquent\Collection as BaseCollection;
+use Arcanedev\LaravelNestedSet\Utilities\NestedSet;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
  * @package  Arcanedev\Taxonomies\Utilities
  * @author   ARCANEDEV <arcanedev.maroc@gmail.com>
  */
-class Collection extends BaseCollection
+class Collection extends EloquentCollection
 {
     /**
      * Fill `parent` and `children` relationships for every node in the collection.
@@ -41,7 +41,7 @@ class Collection extends BaseCollection
                 $child->setRelation('parent', $node);
             }
 
-            $node->setRelation('children', BaseCollection::make($children));
+            $node->setRelation('children', EloquentCollection::make($children));
         }
 
         return $this;
@@ -52,11 +52,11 @@ class Collection extends BaseCollection
      * To successfully build tree "id", "_lft" and "parent_id" keys must present.
      * If `$root` is provided, the tree will contain only descendants of that node.
      *
-     * @param  int|Model|null  $root
+     * @param  mixed  $root
      *
      * @return self
      */
-    public function toTree($root = null)
+    public function toTree($root = false)
     {
         if ($this->isEmpty()) {
             return new static;
@@ -85,13 +85,13 @@ class Collection extends BaseCollection
      *
      * @return int
      */
-    protected function getRootNodeId($root = null)
+    protected function getRootNodeId($root)
     {
         if (NestedSet::isNode($root)) {
             return $root->getKey();
         }
 
-        if ($root !== null) {
+        if ($root !== false) {
             return $root;
         }
 
@@ -103,7 +103,7 @@ class Collection extends BaseCollection
         foreach ($this->items as $node) {
             if ($leastValue === null || $node->getLft() < $leastValue) {
                 $leastValue = $node->getLft();
-                $root = $node->getParentId();
+                $root       = $node->getParentId();
             }
         }
 
