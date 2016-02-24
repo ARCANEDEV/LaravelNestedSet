@@ -24,7 +24,7 @@ class QueryBuilder extends Builder
     /**
      * The model being queried.
      *
-     * @var \Illuminate\Database\Eloquent\Model|\Arcanedev\LaravelNestedSet\Traits\NodeTrait
+     * @var \Arcanedev\LaravelNestedSet\Traits\NodeTrait
      */
     protected $model;
 
