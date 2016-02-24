@@ -476,16 +476,16 @@ class NodeTest extends TestCase
     public function it_can_retrieves_previous_node()
     {
         $node = $this->findCategory('apple');
-        $next = $node->prevNodes()->first();
+        $prev = $node->getPrevNode();
 
-        $this->assertEquals('notebooks', $next->name);
+        $this->assertEquals('notebooks', $prev->name);
     }
 
     /** @test */
     public function it_can_works_with_multiple_appendage()
     {
         $parent = $this->findCategory('mobile');
-        $child  = new Category([ 'name' => 'test' ]);
+        $child  = new Category(['name' => 'test']);
 
         $parent->appendNode($child);
         $child->appendNode(new Category(['name' => 'sub']));
@@ -650,6 +650,14 @@ class NodeTest extends TestCase
 
         $this->assertTrue($fixed > 0);
         $this->assertTreeNotBroken();
+
+        $node = Category::find(8);
+
+        $this->assertEquals(2, $node->getParentId());
+
+        $node = Category::find(2);
+
+        $this->assertEquals(null, $node->getParentId());
     }
 
     /** @test */
@@ -781,6 +789,62 @@ class NodeTest extends TestCase
 
         $this->assertEquals(1, $nodes->count());
         $this->assertEquals(2, $nodes->first()->getKey());
+    }
+
+    public function it_can_rebuild_tree()
+    {
+        $fixed = Category::rebuildTree([
+            [
+                'id'       => 1,
+                'children' => [
+                    [
+                        'id'       => 3,
+                        'name'     => 'apple v2',
+                        'children' => [
+                            ['name' => 'new node'],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->assertTrue($fixed > 0);
+        $this->assertTreeNotBroken();
+
+        $node = Category::find(3);
+
+        $this->assertEquals(1, $node->getParentId());
+        $this->assertEquals('apple v2', $node->name);
+
+        $node = $this->findCategory('new node');
+
+        $this->assertNotNull($node);
+        $this->assertEquals(3, $node->getParentId());
+    }
+
+    /** @test */
+    public function testRebuildTreeWithDeletion()
+    {
+        Category::rebuildTree([
+            ['name' => 'all deleted']
+        ], true);
+
+        $nodes = Category::get();
+
+        $this->assertEquals(1, $nodes->count());
+        $this->assertEquals('all deleted', $nodes->first()->name);
+    }
+
+    /**
+     * @test
+     *
+     * @expectedException \Illuminate\Database\Eloquent\ModelNotFoundException
+     */
+    public function testRebuildFailsWithInvalidPK()
+    {
+        Category::rebuildTree([
+            ['id' => 24]
+        ]);
     }
 
     /* ------------------------------------------------------------------------------------------------
