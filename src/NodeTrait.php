@@ -1,8 +1,8 @@
 <?php namespace Arcanedev\LaravelNestedSet;
 
 use Arcanedev\LaravelNestedSet\Eloquent\DescendantsRelation;
-use Arcanedev\LaravelNestedSet\Eloquent\Collection;
-use Arcanedev\LaravelNestedSet\Eloquent\QueryBuilder;
+use Arcanedev\LaravelNestedSet\Traits\EloquentTrait;
+use Arcanedev\LaravelNestedSet\Traits\SoftDeleteTrait;
 use Arcanedev\LaravelNestedSet\Utilities\NestedSet;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use LogicException;
@@ -16,7 +16,6 @@ use LogicException;
  * @property  array  $attributes
  * @property  array  $original
  * @property  bool   $exists
- * @property  bool   $forceDeleting
  *
  * @method  static  bool   isBroken()
  * @method  static  array  getNodeData($id, $required = false)
@@ -27,6 +26,12 @@ use LogicException;
  */
 trait NodeTrait
 {
+    /* ------------------------------------------------------------------------------------------------
+     |  Traits
+     | ------------------------------------------------------------------------------------------------
+     */
+    use EloquentTrait, SoftDeleteTrait;
+
     /* ------------------------------------------------------------------------------------------------
      |  Properties
      | ------------------------------------------------------------------------------------------------
@@ -44,11 +49,6 @@ trait NodeTrait
      * @var bool
      */
     protected $moved = false;
-
-    /**
-     * @var \Carbon\Carbon
-     */
-    public static $deletedAt;
 
     /**
      * Keep track of the number of performed operations.
@@ -109,122 +109,6 @@ trait NodeTrait
             });
         }
     }
-
-    /* ------------------------------------------------------------------------------------------------
-     |  Eloquent Functions
-     | ------------------------------------------------------------------------------------------------
-     */
-    /**
-     * Get the database connection for the model.
-     *
-     * @return \Illuminate\Database\Connection
-     */
-    abstract public function getConnection();
-
-    /**
-     * Get the table associated with the model.
-     *
-     * @return string
-     */
-    abstract public function getTable();
-
-    /**
-     * Get the value of the model's primary key.
-     *
-     * @return mixed
-     */
-    abstract public function getKey();
-
-    /**
-     * Get the primary key for the model.
-     *
-     * @return string
-     */
-    abstract public function getKeyName();
-
-    /**
-     * Get a plain attribute (not a relationship).
-     *
-     * @param  string  $key
-     *
-     * @return mixed
-     */
-    abstract public function getAttributeValue($key);
-
-    /**
-     * Set the array of model attributes. No checking is done.
-     *
-     * @param  array  $attributes
-     * @param  bool   $sync
-     *
-     * @return self
-     */
-    abstract public function setRawAttributes(array $attributes, $sync = false);
-
-    /**
-     * Set the specific relationship in the model.
-     *
-     * @param  string  $relation
-     * @param  mixed   $value
-     *
-     * @return self
-     */
-    abstract public function setRelation($relation, $value);
-
-    /**
-     * Get a relationship.
-     *
-     * @param  string  $key
-     *
-     * @return mixed
-     */
-    abstract public function getRelationValue($key);
-
-    /**
-     * Create a new instance of the given model.
-     *
-     * @param  array  $attributes
-     * @param  bool   $exists
-     *
-     * @return self
-     */
-    abstract public function newInstance($attributes = [], $exists = false);
-
-    /**
-     * Determine if the model or given attribute(s) have been modified.
-     *
-     * @param  array|string|null  $attributes
-     *
-     * @return bool
-     */
-    abstract public function isDirty($attributes = null);
-
-    /**
-     * Fill the model with an array of attributes.
-     *
-     * @param  array  $attributes
-     *
-     * @return self
-     *
-     * @throws \Illuminate\Database\Eloquent\MassAssignmentException
-     */
-    abstract public function fill(array $attributes);
-
-    /**
-     * Save the model to the database.
-     *
-     * @param  array  $options
-     *
-     * @return bool
-     */
-    abstract public function save(array $options = []);
-
-    /**
-     * Get a new query builder for the model's table.
-     *
-     * @return \Illuminate\Database\Eloquent\Builder
-     */
-    abstract public function newQuery();
 
     /* ------------------------------------------------------------------------------------------------
      |  Relationships
@@ -429,6 +313,14 @@ trait NodeTrait
     }
 
     /**
+     * @return array
+     */
+    protected function getScopeAttributes()
+    {
+        return null;
+    }
+
+    /**
      * Set the lft and rgt boundaries to null.
      *
      * @return self
@@ -573,20 +465,6 @@ trait NodeTrait
     }
 
     /**
-     * Get an attribute array of all arrayable relations.
-     *
-     * @return array
-     */
-    protected function getArrayableRelations()
-    {
-        $result = parent::getArrayableRelations();
-
-        unset($result['parent']);
-
-        return $result;
-    }
-
-    /**
      * Set an action.
      *
      * @param  string  $action
@@ -601,12 +479,18 @@ trait NodeTrait
         return $this;
     }
 
-    /**
-     * @return bool
+    /* ------------------------------------------------------------------------------------------------
+     |  Other Functions
+     | ------------------------------------------------------------------------------------------------
      */
-    protected function actionRaw()
+    /**
+     * Get the lower bound.
+     *
+     * @return int
+     */
+    protected function getLowerBound()
     {
-        return true;
+        return (int) $this->newNestedSetQuery()->max($this->getRgtName());
     }
 
     /**
@@ -631,10 +515,14 @@ trait NodeTrait
         $this->moved   = call_user_func_array([$this, $method], $parameters);
     }
 
-    /* ------------------------------------------------------------------------------------------------
-     |  Other Functions
-     | ------------------------------------------------------------------------------------------------
+    /**
+     * @return bool
      */
+    protected function actionRaw()
+    {
+        return true;
+    }
+
     /**
      * Make a root node.
      */
@@ -657,16 +545,6 @@ trait NodeTrait
         $this->setParent(null);
 
         return $this->insertAt($this->getLowerBound() + 1);
-    }
-
-    /**
-     * Get the lower bound.
-     *
-     * @return int
-     */
-    protected function getLowerBound()
-    {
-        return (int) $this->newNestedSetQuery()->max($this->getRgtName());
     }
 
     /**
@@ -1081,18 +959,6 @@ trait NodeTrait
     }
 
     /**
-     * Create a new Eloquent query builder for the model.
-     *
-     * @param  \Illuminate\Database\Query\Builder  $query
-     *
-     * @return \Arcanedev\LaravelNestedSet\Eloquent\QueryBuilder
-     */
-    public function newEloquentBuilder($query)
-    {
-        return new QueryBuilder($query);
-    }
-
-    /**
      * Get a new base query that includes deleted nodes.
      *
      * @param  string|null $table
@@ -1142,14 +1008,6 @@ trait NodeTrait
     }
 
     /**
-     * @return array
-     */
-    protected function getScopeAttributes()
-    {
-        return null;
-    }
-
-    /**
      * @param  array  $attributes
      *
      * @return self
@@ -1161,18 +1019,6 @@ trait NodeTrait
         $instance->setRawAttributes($attributes);
 
         return $instance->newScopedQuery();
-    }
-
-    /**
-     * Create a new Eloquent Collection instance.
-     *
-     * @param  array  $models
-     *
-     * @return \Arcanedev\LaravelNestedSet\Eloquent\Collection
-     */
-    public function newCollection(array $models = [])
-    {
-        return new Collection($models);
     }
 
     /**
@@ -1281,34 +1127,6 @@ trait NodeTrait
     public function hasMoved()
     {
         return $this->moved;
-    }
-
-    /**
-     * Check if the model uses soft delete.
-     *
-     * @return bool
-     */
-    public static function usesSoftDelete()
-    {
-        static $softDelete;
-
-        if (is_null($softDelete)) {
-            $instance = new static;
-
-            return $softDelete = method_exists($instance, 'withTrashed');
-        }
-
-        return $softDelete;
-    }
-
-    /**
-     * Get whether user is intended to delete the model from database entirely.
-     *
-     * @return bool
-     */
-    protected function hardDeleting()
-    {
-        return ! $this->usesSoftDelete() || $this->forceDeleting;
     }
 
     /* ------------------------------------------------------------------------------------------------
