@@ -1,6 +1,6 @@
 <?php namespace Arcanedev\LaravelNestedSet\Tests\Models;
 
-use Arcanedev\LaravelNestedSet\Traits\NodeTrait;
+use Arcanedev\LaravelNestedSet\NodeTrait;
 use Arcanedev\LaravelNestedSet\Utilities\NestedSet;
 use Illuminate\Database\Eloquent\Model;
 
@@ -24,7 +24,7 @@ class MenuItem extends Model
      |  Traits
      | ------------------------------------------------------------------------------------------------
      */
-    use NodeTrait;
+    use \Arcanedev\LaravelNestedSet\NodeTrait;
 
     /* ------------------------------------------------------------------------------------------------
      |  Properties

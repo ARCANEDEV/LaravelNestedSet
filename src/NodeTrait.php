@@ -1,10 +1,9 @@
-<?php namespace Arcanedev\LaravelNestedSet\Traits;
+<?php namespace Arcanedev\LaravelNestedSet;
 
 use Arcanedev\LaravelNestedSet\Eloquent\DescendantsRelation;
 use Arcanedev\LaravelNestedSet\Eloquent\Collection;
 use Arcanedev\LaravelNestedSet\Eloquent\QueryBuilder;
 use Arcanedev\LaravelNestedSet\Utilities\NestedSet;
-use Exception;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use LogicException;
 
@@ -403,7 +402,7 @@ trait NodeTrait
      *
      * @param  int  $value
      *
-     * @throws Exception If parent node doesn't exists
+     * @throws \Exception If parent node doesn't exists
      */
     public function setParentIdAttribute($value)
     {

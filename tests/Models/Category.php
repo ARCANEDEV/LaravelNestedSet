@@ -1,6 +1,6 @@
 <?php namespace Arcanedev\LaravelNestedSet\Tests\Models;
 
-use Arcanedev\LaravelNestedSet\Traits\NodeTrait;
+use Arcanedev\LaravelNestedSet\NodeTrait;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -16,7 +16,7 @@ class Category extends Model
      |  Traits
      | ------------------------------------------------------------------------------------------------
      */
-    use NodeTrait, SoftDeletes;
+    use \Arcanedev\LaravelNestedSet\NodeTrait, SoftDeletes;
 
     /* ------------------------------------------------------------------------------------------------
      |  Properties

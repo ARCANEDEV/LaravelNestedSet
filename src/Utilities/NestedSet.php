@@ -1,6 +1,6 @@
 <?php namespace Arcanedev\LaravelNestedSet\Utilities;
 
-use Arcanedev\LaravelNestedSet\Traits\NodeTrait;
+use Arcanedev\LaravelNestedSet\NodeTrait;
 use Illuminate\Database\Schema\Blueprint;
 
 /**

@@ -1,7 +1,7 @@
 <?php namespace Arcanedev\LaravelNestedSet\Tests;
 
 use Arcanedev\LaravelNestedSet\Tests\Models\Category;
-use Arcanedev\LaravelNestedSet\Traits\NodeTrait;
+use Arcanedev\LaravelNestedSet\NodeTrait;
 use Arcanedev\LaravelNestedSet\Eloquent\Collection;
 use Arcanedev\LaravelNestedSet\Utilities\NestedSet;
 use Illuminate\Database\Schema\Blueprint;

@@ -1,6 +1,6 @@
 <?php namespace Arcanedev\LaravelNestedSet\Eloquent;
 
-use Arcanedev\LaravelNestedSet\Traits\NodeTrait;
+use Arcanedev\LaravelNestedSet\NodeTrait;
 use Arcanedev\LaravelNestedSet\Utilities\NestedSet;
 use Arcanedev\LaravelNestedSet\Utilities\TreeHelper;
 use Illuminate\Database\Eloquent\Builder;
@@ -24,7 +24,7 @@ class QueryBuilder extends Builder
     /**
      * The model being queried.
      *
-     * @var \Arcanedev\LaravelNestedSet\Traits\NodeTrait
+     * @var \Arcanedev\LaravelNestedSet\NodeTrait
      */
     protected $model;
 
