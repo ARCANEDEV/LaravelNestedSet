@@ -20,6 +20,7 @@ use LogicException;
  * @method  static  bool   isBroken()
  * @method  static  array  getNodeData($id, $required = false)
  * @method  static  array  getPlainNodeData($id, $required = false)
+ * @method  static  int    rebuildTree(array $data, bool $delete = false)
  *
  * @method  \Illuminate\Database\Eloquent\Relations\BelongsTo  belongsTo(string $related, string $foreignKey = null, string $otherKey = null, string $relation = null)
  * @method  \Illuminate\Database\Eloquent\Relations\HasMany    hasMany(string $related, string $foreignKey = null, string $localKey = null)
