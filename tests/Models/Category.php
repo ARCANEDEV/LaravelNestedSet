@@ -16,7 +16,7 @@ class Category extends Model
      |  Traits
      | ------------------------------------------------------------------------------------------------
      */
-    use \Arcanedev\LaravelNestedSet\NodeTrait, SoftDeletes;
+    use NodeTrait, SoftDeletes;
 
     /* ------------------------------------------------------------------------------------------------
      |  Properties
