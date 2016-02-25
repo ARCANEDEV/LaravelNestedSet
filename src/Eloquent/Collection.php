@@ -109,4 +109,51 @@ class Collection extends EloquentCollection
 
         return $root;
     }
+
+    /**
+     * Build a list of nodes that retain the order that they were pulled from the database.
+     *
+     * @return self
+     */
+    public function toFlattenedTree()
+    {
+        return $this->toTree()->flattenTree();
+    }
+
+    /**
+     * Flatten a tree into a non recursive array
+     */
+    public function flattenTree()
+    {
+        $items = [];
+
+        foreach ($this->items as $node) {
+            $items = array_merge($items, $this->flattenNode($node));
+        }
+
+        return new static($items);
+    }
+
+    /* ------------------------------------------------------------------------------------------------
+     |  Other Functions
+     | ------------------------------------------------------------------------------------------------
+     */
+    /**
+     * Flatten a single node
+     *
+     * @param  \Arcanedev\LaravelNestedSet\NodeTrait  $node
+     *
+     * @return array
+     */
+    protected function flattenNode($node)
+    {
+        $items   = [];
+        $items[] = $node;
+
+        foreach ($node->children as $childNode) {
+            $items = array_merge($items, $this->flattenNode($childNode));
+        }
+
+        return $items;
+    }
 }
