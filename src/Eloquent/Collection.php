@@ -3,7 +3,6 @@
 use Arcanedev\LaravelNestedSet\NodeTrait;
 use Arcanedev\LaravelNestedSet\Utilities\NestedSet;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
-use Illuminate\Database\Eloquent\Model;
 
 /**
  * Class     Collection
@@ -13,30 +12,32 @@ use Illuminate\Database\Eloquent\Model;
  */
 class Collection extends EloquentCollection
 {
+    /* ------------------------------------------------------------------------------------------------
+     |  Main Functions
+     | ------------------------------------------------------------------------------------------------
+     */
     /**
      * Fill `parent` and `children` relationships for every node in the collection.
      *
      * This will overwrite any previously set relations.
      *
-     * @return $this
+     * @return \Arcanedev\LaravelNestedSet\Eloquent\Collection
      */
     public function linkNodes()
     {
-        if ($this->isEmpty()) {
-            return $this;
-        }
+        if ($this->isEmpty()) return $this;
 
         $groupedNodes = $this->groupBy($this->first()->getParentIdName());
 
-        /** @var NodeTrait|Model $node */
+        /** @var  NodeTrait|\Illuminate\Database\Eloquent\Model  $node */
         foreach ($this->items as $node) {
             if ( ! $node->getParentId()) {
                 $node->setRelation('parent', null);
             }
 
-            $children = $groupedNodes->get($node->getKey(), [ ]);
+            $children = $groupedNodes->get($node->getKey(), []);
 
-            /** @var Model|NodeTrait $child */
+            /** @var  NodeTrait|\Illuminate\Database\Eloquent\Model  $child */
             foreach ($children as $child) {
                 $child->setRelation('parent', $node);
             }
@@ -54,21 +55,18 @@ class Collection extends EloquentCollection
      *
      * @param  mixed  $root
      *
-     * @return self
+     * @return \Arcanedev\LaravelNestedSet\Eloquent\Collection
      */
     public function toTree($root = false)
     {
-        if ($this->isEmpty()) {
-            return new static;
-        }
+        if ($this->isEmpty()) return new static;
 
         $this->linkNodes();
 
-        $items = [ ];
+        $items = [];
+        $root  = $this->getRootNodeId($root);
 
-        $root = $this->getRootNodeId($root);
-
-        /** @var Model|NodeTrait $node */
+        /** @var  NodeTrait|\Illuminate\Database\Eloquent\Model  $node */
         foreach ($this->items as $node) {
             if ($node->getParentId() == $root) {
                 $items[] = $node;
@@ -79,27 +77,48 @@ class Collection extends EloquentCollection
     }
 
     /**
+     * Build a list of nodes that retain the order that they were pulled from the database.
+     *
+     * @param  bool  $root
+     *
+     * @return \Arcanedev\LaravelNestedSet\Eloquent\Collection
+     */
+    public function toFlatTree($root = false)
+    {
+        $result = new static;
+
+        if ($this->isEmpty()) return $result;
+
+        return $result->flattenTree(
+            $this->groupBy($this->first()->getParentIdName()),
+            $this->getRootNodeId($root)
+        );
+    }
+
+    /* ------------------------------------------------------------------------------------------------
+     |  Other Functions
+     | ------------------------------------------------------------------------------------------------
+     */
+    /**
      * Get root node id.
      *
      * @param  mixed  $root
      *
      * @return int
      */
-    protected function getRootNodeId($root)
+    protected function getRootNodeId($root = false)
     {
         if (NestedSet::isNode($root)) {
             return $root->getKey();
         }
 
-        if ($root !== false) {
-            return $root;
-        }
+        if ($root !== false) return $root;
 
         // If root node is not specified we take parent id of node with
         // least lft value as root node id.
         $leastValue = null;
 
-        /** @var Model|NodeTrait $node */
+        /** @var  NodeTrait|\Illuminate\Database\Eloquent\Model  $node */
         foreach ($this->items as $node) {
             if ($leastValue === null || $node->getLft() < $leastValue) {
                 $leastValue = $node->getLft();
@@ -111,49 +130,20 @@ class Collection extends EloquentCollection
     }
 
     /**
-     * Build a list of nodes that retain the order that they were pulled from the database.
+     * Flatten a tree into a non recursive array.
      *
-     * @return self
+     * @param  \Arcanedev\LaravelNestedSet\Eloquent\Collection  $groupedNodes
+     * @param  mixed                                            $parentId
+     *
+     * @return \Arcanedev\LaravelNestedSet\Eloquent\Collection
      */
-    public function toFlattenedTree()
+    protected function flattenTree(self $groupedNodes, $parentId)
     {
-        return $this->toTree()->flattenTree();
-    }
-
-    /**
-     * Flatten a tree into a non recursive array
-     */
-    public function flattenTree()
-    {
-        $items = [];
-
-        foreach ($this->items as $node) {
-            $items = array_merge($items, $this->flattenNode($node));
+        foreach ($groupedNodes->get($parentId, []) as $node) {
+            $this->push($node);
+            $this->flattenTree($groupedNodes, $node->getKey());
         }
 
-        return new static($items);
-    }
-
-    /* ------------------------------------------------------------------------------------------------
-     |  Other Functions
-     | ------------------------------------------------------------------------------------------------
-     */
-    /**
-     * Flatten a single node
-     *
-     * @param  \Arcanedev\LaravelNestedSet\NodeTrait  $node
-     *
-     * @return array
-     */
-    protected function flattenNode($node)
-    {
-        $items   = [];
-        $items[] = $node;
-
-        foreach ($node->children as $childNode) {
-            $items = array_merge($items, $this->flattenNode($childNode));
-        }
-
-        return $items;
+        return $this;
     }
 }
