@@ -286,7 +286,7 @@ trait NodeTrait
     /**
      * Apply parent model.
      *
-     * @param  \Arcanedev\LaravelNestedSet\Contracts\Nodeable  $value
+     * @param  \Arcanedev\LaravelNestedSet\Contracts\Nodeable|null  $value
      *
      * @return self
      */
