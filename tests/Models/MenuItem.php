@@ -1,6 +1,6 @@
 <?php namespace Arcanedev\LaravelNestedSet\Tests\Models;
 
-use Arcanedev\LaravelNestedSet\NodeTrait;
+use Arcanedev\LaravelNestedSet\Contracts\Nodeable;
 use Arcanedev\LaravelNestedSet\Utilities\NestedSet;
 use Illuminate\Database\Eloquent\Model;
 
@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
  * @package  Arcanedev\LaravelNestedSet\Tests\Models
  * @author   ARCANEDEV <arcanedev.maroc@gmail.com>
  */
-class MenuItem extends Model
+class MenuItem extends Model implements Nodeable
 {
     /* ------------------------------------------------------------------------------------------------
      |  Constants

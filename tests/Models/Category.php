@@ -1,5 +1,6 @@
 <?php namespace Arcanedev\LaravelNestedSet\Tests\Models;
 
+use Arcanedev\LaravelNestedSet\Contracts\Nodeable;
 use Arcanedev\LaravelNestedSet\NodeTrait;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -10,7 +11,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @package  Arcanedev\Taxonomies\Tests\Models
  * @author   ARCANEDEV <arcanedev.maroc@gmail.com>
  */
-class Category extends Model
+class Category extends Model implements Nodeable
 {
     /* ------------------------------------------------------------------------------------------------
      |  Traits

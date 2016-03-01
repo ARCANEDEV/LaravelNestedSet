@@ -61,7 +61,7 @@ class ScopedNodeTest extends TestCase
     /** @test */
     public function it_can_be_scoped()
     {
-        $node = MenuItem::scoped([ 'menu_id' => 2 ])->first();
+        $node = MenuItem::scoped(['menu_id' => 2])->first();
 
         $this->assertEquals(3, $node->getKey());
     }

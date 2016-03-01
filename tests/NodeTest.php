@@ -1,7 +1,7 @@
 <?php namespace Arcanedev\LaravelNestedSet\Tests;
 
+use Arcanedev\LaravelNestedSet\Contracts\Nodeable;
 use Arcanedev\LaravelNestedSet\Tests\Models\Category;
-use Arcanedev\LaravelNestedSet\NodeTrait;
 use Arcanedev\LaravelNestedSet\Eloquent\Collection;
 use Arcanedev\LaravelNestedSet\Utilities\NestedSet;
 use Illuminate\Database\Schema\Blueprint;
@@ -173,7 +173,8 @@ class NodeTest extends TestCase
     /**
      * @test
      *
-     * @expectedException \Exception
+     * @expectedException         \LogicException
+     * @expectedExceptionMessage  Node must not be a descendant.
      */
     public function it_must_fails_to_insert_into_child()
     {
@@ -186,7 +187,8 @@ class NodeTest extends TestCase
     /**
      * @test
      *
-     * @expectedException \Exception
+     * @expectedException         \LogicException
+     * @expectedExceptionMessage  Node must not be a descendant.
      */
     public function it_must_fails_to_append_into_itself()
     {
@@ -198,13 +200,14 @@ class NodeTest extends TestCase
     /**
      * @test
      *
-     * @expectedException \Exception
+     * @expectedException         \LogicException
+     * @expectedExceptionMessage  Node must not be a descendant.
      */
     public function it_must_fails_to_prepend_into_itself()
     {
         $node = $this->findCategory('notebooks');
 
-        $node->prependTo($node)->save();
+        $node->prependToNode($node)->save();
     }
 
     /** @test */
@@ -218,72 +221,94 @@ class NodeTest extends TestCase
     /** @test */
     public function it_can_get_ancestors_without_node_itself()
     {
-        $node = $this->findCategory('apple');
-        $path = all($node->ancestors()->lists('name'));
+        $category  = $this->findCategory('apple');
+        $ancestors = $category->ancestors()->lists('name');
 
-        $this->assertEquals(['store', 'notebooks'], $path);
+        $this->assertCount(2, $ancestors);
+        $this->assertEquals(['store', 'notebooks'], $ancestors->toArray());
     }
 
     /** @test */
     public function it_can_get_ancestors_without_node_itself_by_static_method()
     {
-        $path = all(Category::ancestorsOf(3)->lists('name'));
+        /** @var  \Illuminate\Support\Collection  $ancestors */
+        $ancestors = Category::ancestorsOf(3)->lists('name');
 
-        $this->assertEquals(['store', 'notebooks'], $path);
+        $this->assertCount(2, $ancestors);
+        $this->assertEquals(['store', 'notebooks'], $ancestors->toArray());
     }
 
     /** @test */
     public function it_can_gets_ancestors_direct()
     {
-        $path = all(Category::find(8)->getAncestors()->lists('id'));
+        /** @var  \Illuminate\Support\Collection  $ancestors */
+        $ancestors = Category::find(8)->getAncestors()->lists('id');
 
-        $this->assertEquals([1, 5, 7], $path);
+        $this->assertCount(3, $ancestors);
+        $this->assertEquals([1, 5, 7], $ancestors->toArray());
     }
 
     /** @test */
     public function it_can_get_descendants()
     {
-        $node        = $this->findCategory('mobile');
-        $descendants = all($node->descendants()->lists('name'));
-        $expected    = ['nokia', 'samsung', 'galaxy', 'sony', 'lenovo'];
+        $category = $this->findCategory('mobile');
+        $expected = ['nokia', 'samsung', 'galaxy', 'sony', 'lenovo'];
 
-        $this->assertEquals($expected, $descendants);
+        $this->assertCount(
+            $category->getDescendantCount(),
+            $category->descendants()->lists('name')
+        );
+        $this->assertEquals(
+            $expected,
+            $category->descendants()->lists('name')->toArray()
+        );
 
-        $descendants = all($node->getDescendants()->lists('name'));
-
-        $this->assertCount($node->getDescendantCount(), $descendants);
-        $this->assertEquals($expected, $descendants);
+        $this->assertCount(
+            $category->getDescendantCount(),
+            $category->getDescendants()->lists('name')
+        );
+        $this->assertEquals(
+            $expected,
+            $category->getDescendants()->lists('name')->toArray()
+        );
     }
 
     /** @test */
     public function it_can_works_with_depth()
     {
-        $nodes    = all(Category::withDepth()->limit(4)->lists('depth'));
-        $expected = [0, 1, 2, 2];
+        /** @var \Illuminate\Support\Collection $categories */
+        $categories = Category::withDepth()->limit(4)->lists('depth');
+        $expected   = [0, 1, 2, 2];
 
-        $this->assertEquals($expected, $nodes);
+        $this->assertEquals($expected, $categories->toArray());
     }
 
     /** @test */
     public function it_can_works_with_depth_by_a_custom_key()
     {
-        $node = Category::whereIsRoot()->withDepth('level')->first();
+        $category = Category::whereIsRoot()
+            ->withDepth('level')
+            ->first();
 
-        $this->assertTrue(isset($node['level']));
+        $this->assertNotNull($category['level']);
     }
 
     /** @test */
     public function it_can_works_with_depth_by_a_default_key()
     {
-        $node = Category::withDepth()->first();
+        /** @var  Category  $category */
+        $category = Category::withDepth()->first();
 
-        $this->assertTrue(isset($node->name));
+        $this->assertNotNull($category->name);
     }
 
     /** @test */
     public function it_can_appends_node_with_parent_id_attribute_accessor()
     {
-        $node = new Category(['name' => 'lg', 'parent_id' => 5]);
+        $node = new Category([
+            'name'      => 'lg',
+            'parent_id' => 5
+        ]);
         $node->save();
 
         $this->assertEquals(5, $node->parent_id);
@@ -360,41 +385,33 @@ class NodeTest extends TestCase
     /**
      * @test
      *
-     * @expectedException \Exception
+     * @expectedException         \LogicException
+     * @expectedExceptionMessage  Node must exists.
      */
     public function it_must_fails_to_save_node_until_parent_is_saved()
     {
         $node   = new Category(['title' => 'Node']);
         $parent = new Category(['title' => 'Parent']);
 
-        $node->appendTo($parent)->save();
+        $node->appendToNode($parent)->save();
     }
 
     /** @test */
     public function it_can_get_Siblings()
     {
-        $node     = $this->findCategory('samsung');
-        $siblings = all($node->siblings()->lists('id'));
-        $next     = all($node->nextSiblings()->lists('id'));
-        $prev     = all($node->prevSiblings()->lists('id'));
+        $node = $this->findCategory('samsung');
 
-        $this->assertEquals([6, 9, 10], $siblings);
-        $this->assertEquals([9, 10], $next);
-        $this->assertEquals([6], $prev);
+        $this->assertEquals([6, 9, 10], $node->siblings()->lists('id')->toArray());
+        $this->assertEquals([6, 9, 10], $node->getSiblings()->lists('id')->toArray());
 
-        $siblings = all($node->getSiblings()->lists('id'));
-        $next     = all($node->getNextSiblings()->lists('id'));
-        $prev     = all($node->getPrevSiblings()->lists('id'));
+        $this->assertEquals([9, 10],    $node->nextSiblings()->lists('id')->toArray());
+        $this->assertEquals([9, 10],    $node->getNextSiblings()->lists('id')->toArray());
 
-        $this->assertEquals([6, 9, 10], $siblings);
-        $this->assertEquals([9, 10],    $next);
-        $this->assertEquals([6],        $prev);
+        $this->assertEquals([6],        $node->prevSiblings()->lists('id')->toArray());
+        $this->assertEquals([6],        $node->getPrevSiblings()->lists('id')->toArray());
 
-        $next = $node->getNextSibling();
-        $prev = $node->getPrevSibling();
-
-        $this->assertEquals(9, $next->id);
-        $this->assertEquals(6, $prev->id);
+        $this->assertEquals(9, $node->getNextSibling()->id);
+        $this->assertEquals(6, $node->getPrevSibling()->id);
     }
 
     /** @test */
@@ -419,21 +436,24 @@ class NodeTest extends TestCase
         $root = $tree->first();
 
         $this->assertEquals('mobile', $root->name);
-        $this->assertCount(4, $root->children);
+        $this->assertCount(4,         $root->children);
     }
 
     /** @test */
     public function it_can_convert_to_tree_with_a_custom_order()
     {
-        $tree = Category::whereBetween('_lft', [8, 17])->orderBy('title')->get()->toTree();
+        $tree = Category::whereBetween('_lft', [8, 17])
+            ->orderBy('title')
+            ->get()
+            ->toTree();
 
         $this->assertCount(1, $tree);
 
         $root = $tree->first();
 
         $this->assertEquals('mobile', $root->name);
-        $this->assertCount(4, $root->children);
-        $this->assertEquals($root, $root->children->first()->parent);
+        $this->assertCount(4,         $root->children);
+        $this->assertEquals($root,    $root->children->first()->parent);
     }
 
     /** @test */
@@ -451,7 +471,7 @@ class NodeTest extends TestCase
     {
         $tree = Category::withoutRoot()->get()->toTree();
 
-        $this->assertEquals(2, count($tree));
+        $this->assertCount(2, $tree);
     }
 
     /** @test */
@@ -459,18 +479,20 @@ class NodeTest extends TestCase
     {
         $tree = Category::whereBetween('_lft', [8, 17])->get()->toTree(5);
 
-        $this->assertEquals(4, count($tree));
+        $this->assertCount(4, $tree);
 
         $root = $tree[1];
         $this->assertEquals('samsung', $root->name);
-        $this->assertEquals(1, count($root->children));
+        $this->assertCount(1, $root->children);
     }
 
     /** @test */
     public function it_can_retrieves_next_node()
     {
-        $node = $this->findCategory('apple');
-        $next = $node->nextNodes()->first();
+        /** @var Category $next */
+        $next = $this->findCategory('apple')
+            ->nextNodes()
+            ->first();
 
         $this->assertEquals('lenovo', $next->name);
     }
@@ -524,7 +546,7 @@ class NodeTest extends TestCase
         $node = $this->findCategory('nokia');
 
         $this->assertTrue($node->down(2));
-        $this->assertEquals($node->_lft, 15);
+        $this->assertEquals(15, $node->_lft);
     }
 
     /** @test */
@@ -533,7 +555,7 @@ class NodeTest extends TestCase
         $node = $this->findCategory('sony');
 
         $this->assertTrue($node->up(2));
-        $this->assertEquals($node->_lft, 9);
+        $this->assertEquals(9, $node->_lft);
     }
 
     /** @test */
@@ -615,18 +637,18 @@ class NodeTest extends TestCase
     public function it_can_get_ancestors_by_a_node()
     {
         $category  = $this->findCategory('apple');
-        $ancestors = all(Category::whereAncestorOf($category)->lists('id'));
+        $ancestors = Category::whereAncestorOf($category)->lists('id');
 
-        $this->assertEquals([1, 2], $ancestors);
+        $this->assertEquals([1, 2], $ancestors->toArray());
     }
 
     /** @test */
     public function it_can_get_descendants_by_a_node()
     {
-        $category = $this->findCategory('notebooks');
-        $res      = all(Category::whereDescendantOf($category)->lists('id'));
+        $category   = $this->findCategory('notebooks');
+        $categories = Category::whereDescendantOf($category)->lists('id');
 
-        $this->assertEquals([3, 4], $res);
+        $this->assertEquals([3, 4], $categories->toArray());
     }
 
     /** @test */
@@ -635,6 +657,7 @@ class NodeTest extends TestCase
         $category = $this->findCategory('mobile');
 
         foreach ($category->children()->take(2)->get() as $child) {
+            /** @var Category $child */
             $child->forceDelete();
         }
 
@@ -644,23 +667,30 @@ class NodeTest extends TestCase
     /** @test */
     public function it_can_fix_tree()
     {
-        Category::where('id', 5)->update(['_lft' => 14]);
-        Category::where('id', 8)->update(['parent_id' => 2]);
-        Category::where('id', 11)->update(['_lft' => 20]);
-        Category::where('id', 2)->update(['parent_id' => 24]);
+        $updates = [
+            5  => ['_lft' => 14],
+            8  => ['parent_id' => 2],
+            11 => ['_lft' => 20],
+            2  => ['parent_id' => 24],
+        ];
+
+        foreach ($updates as $id => $update) {
+            Category::where('id', $id)->update($update);
+        }
 
         $fixed = Category::fixTree();
 
         $this->assertTrue($fixed > 0);
         $this->assertTreeNotBroken();
 
-        $node = Category::find(8);
+        /** @var Category $category */
+        $category = Category::find(8);
 
-        $this->assertEquals(2, $node->getParentId());
+        $this->assertEquals(2, $category->getParentId());
 
-        $node = Category::find(2);
+        $category = Category::find(2);
 
-        $this->assertEquals(null, $node->getParentId());
+        $this->assertNull($category->getParentId());
     }
 
     /** @test */
@@ -708,13 +738,14 @@ class NodeTest extends TestCase
     {
         $descendants = $this->findCategory('notebooks')->descendants;
 
-        $this->assertEquals(2, $descendants->count());
+        $this->assertEquals(2,       $descendants->count());
         $this->assertEquals('apple', $descendants->first()->name);
     }
 
     /** @test */
     public function it_can_eagerly_loaded_the_descendants_nodes()
     {
+        /** @var Category $nodes */
         $nodes = Category::whereIn('id', [ 2, 5 ])->get();
 
         $nodes->load('descendants');
@@ -768,6 +799,7 @@ class NodeTest extends TestCase
         $this->assertTrue($fixed > 0);
         $this->assertTreeNotBroken();
 
+        /** @var Category $node */
         $node = Category::find(3);
 
         $this->assertEquals(1, $node->getParentId());
@@ -836,17 +868,15 @@ class NodeTest extends TestCase
     }
 
     /**
-     * @param  NodeTrait  $node
+     * @param  \Arcanedev\LaravelNestedSet\Contracts\Nodeable  $node
      */
-    protected function assertNodeReceivesValidValues($node)
+    protected function assertNodeReceivesValidValues(Nodeable $node)
     {
-        $lft      = $node->getLft();
-        $rgt      = $node->getRgt();
-        $nodeInDb = $this->findCategory($node->name);
+        $category = $this->findCategory($node->name);
 
         $this->assertEquals(
-            [$nodeInDb->getLft(), $nodeInDb->getRgt()],
-            [$lft, $rgt],
+            [$category->getLft(), $category->getRgt()],
+            [$node->getLft(),     $node->getRgt()],
             'Node is not synced with database after save.'
         );
     }
@@ -854,6 +884,9 @@ class NodeTest extends TestCase
     /* ------------------------------------------------------------------------------------------------
      |  Other Functions
      | ------------------------------------------------------------------------------------------------
+     */
+    /**
+     * Create the categories table.
      */
     private function createCategoriesTable()
     {
@@ -874,43 +907,35 @@ class NodeTest extends TestCase
      */
     private function seedCategoriesTable()
     {
-        $data = include __DIR__ . '/fixtures/data/categories.php';
-
-        $this->table('categories')->insert($data);
+        $this->table('categories')->insert(
+            include __DIR__ . '/fixtures/data/categories.php'
+        );
     }
 
     /**
+     * Find a category.
+     *
      * @param  string  $name
      * @param  bool    $withTrashed
      *
-     * @return Category
+     * @return \Arcanedev\LaravelNestedSet\Tests\Models\Category
      */
-    public function findCategory($name, $withTrashed = false)
+    private function findCategory($name, $withTrashed = false)
     {
-        $q = new Category;
-        $q = $withTrashed ? $q->withTrashed() : $q->newQuery();
+        $category = new Category;
+        $category = $withTrashed ? $category->withTrashed() : $category->newQuery();
 
-        return $q->where('name', $name)->first();
-    }
-
-    protected function dumpTree($items = null)
-    {
-        if ( ! $items) {
-            $items = Category::withTrashed()->defaultOrder()->get();
-        }
-
-        /** @var NodeTrait $item */
-        foreach ($items as $item) {
-            echo PHP_EOL . ($item->trashed() ? '-' : '+') . ' ' . $item->name . " " . $item->getKey() . ' ' . $item->getLft() . " " . $item->getRgt() . ' ' . $item->getParentId();
-        }
+        return $category->where('name', $name)->first();
     }
 
     /**
-     * @param  NodeTrait  $node
+     * Get the node values.
+     *
+     * @param  \Arcanedev\LaravelNestedSet\Contracts\Nodeable  $node
      *
      * @return array
      */
-    public function nodeValues($node)
+    private function nodeValues($node)
     {
         return [
             $node->_lft,
@@ -918,9 +943,21 @@ class NodeTest extends TestCase
             $node->parent_id
         ];
     }
-}
 
-function all($items)
-{
-    return is_array($items) ? $items : $items->all();
+    /**
+     * Dump the tree (Only for tests).
+     *
+     * @param  null  $items
+     */
+    private function dumpTree($items = null)
+    {
+        if ($items === null) {
+            $items = Category::withTrashed()->defaultOrder()->get();
+        }
+
+        /** @var  \Arcanedev\LaravelNestedSet\Tests\Models\Category  $item */
+        foreach ($items as $item) {
+            echo PHP_EOL . ($item->trashed() ? '-' : '+') . ' ' . $item->name . " " . $item->getKey() . ' ' . $item->getLft() . " " . $item->getRgt() . ' ' . $item->getParentId();
+        }
+    }
 }
