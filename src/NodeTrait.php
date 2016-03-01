@@ -1,5 +1,6 @@
 <?php namespace Arcanedev\LaravelNestedSet;
 
+use Arcanedev\LaravelNestedSet\Contracts\Nodeable;
 use Arcanedev\LaravelNestedSet\Eloquent\DescendantsRelation;
 use Arcanedev\LaravelNestedSet\Traits\EloquentTrait;
 use Arcanedev\LaravelNestedSet\Traits\SoftDeleteTrait;
@@ -13,17 +14,34 @@ use LogicException;
  * @package  Arcanedev\Taxonomies\Traits
  * @author   ARCANEDEV <arcanedev.maroc@gmail.com>
  *
- * @property  array  $attributes
- * @property  array  $original
- * @property  bool   $exists
+ * @property  int                                             $id
+ * @property  int                                             $_lft
+ * @property  int                                             $_rgt
+ * @property  int                                             $parent_id
+ * @property  array                                           $attributes
+ * @property  array                                           $original
+ * @property  bool                                            $exists
+ * @property  \Arcanedev\LaravelNestedSet\Contracts\Nodeable  $parent
+ * @property  \Illuminate\Database\Eloquent\Collection        $children
  *
- * @method  static  bool   isBroken()
- * @method  static  array  getNodeData($id, $required = false)
- * @method  static  array  getPlainNodeData($id, $required = false)
- * @method  static  int    rebuildTree(array $data, bool $delete = false)
+ * @method  static  bool                                               isBroken()
+ * @method  static  array                                              getNodeData($id, $required = false)
+ * @method  static  array                                              getPlainNodeData($id, $required = false)
+ * @method  static  int                                                rebuildTree(array $data, bool $delete = false)
+ * @method  static  int                                                fixTree()
+ * @method  static  \Arcanedev\LaravelNestedSet\Contracts\Nodeable     root(array $columns = ['*'])
  *
- * @method  \Illuminate\Database\Eloquent\Relations\BelongsTo  belongsTo(string $related, string $foreignKey = null, string $otherKey = null, string $relation = null)
- * @method  \Illuminate\Database\Eloquent\Relations\HasMany    hasMany(string $related, string $foreignKey = null, string $localKey = null)
+ * @method  static  \Arcanedev\LaravelNestedSet\Eloquent\QueryBuilder  ancestorsOf(mixed $id, array $columns = ['*'])
+ * @method  static  \Arcanedev\LaravelNestedSet\Eloquent\QueryBuilder  withDepth(string $as = 'depth')
+ * @method  static  \Arcanedev\LaravelNestedSet\Eloquent\QueryBuilder  withoutRoot()
+ * @method  static  \Arcanedev\LaravelNestedSet\Eloquent\QueryBuilder  whereDescendantOf(mixed $id, string $boolean = 'and', bool $not = false)
+ * @method  static  \Arcanedev\LaravelNestedSet\Eloquent\QueryBuilder  whereAncestorOf(mixed $id)
+ * @method  static  \Arcanedev\LaravelNestedSet\Eloquent\QueryBuilder  whereIsRoot()
+ * @method  static  array                                              countErrors()
+ *
+ * @method  \Illuminate\Database\Eloquent\Relations\BelongsTo          belongsTo(string $related, string $foreignKey = null, string $otherKey = null, string $relation = null)
+ * @method  \Illuminate\Database\Eloquent\Relations\HasMany            hasMany(string $related, string $foreignKey = null, string $localKey = null)
+ * @method  static  \Illuminate\Database\Eloquent\Builder              where(string $column, string $operator = null, mixed $value = null, string $boolean = 'and')
  */
 trait NodeTrait
 {
@@ -314,6 +332,8 @@ trait NodeTrait
     }
 
     /**
+     * Get the scope attributes.
+     *
      * @return array
      */
     protected function getScopeAttributes()
@@ -376,7 +396,7 @@ trait NodeTrait
      *
      * @param  array  $columns
      *
-     * @return \Arcanedev\LaravelNestedSet\Eloquent\Collection|self[]
+     * @return \Arcanedev\LaravelNestedSet\Eloquent\Collection
      */
     public function getDescendants(array $columns = ['*'])
     {
@@ -388,7 +408,7 @@ trait NodeTrait
      *
      * @param  array  $columns
      *
-     * @return \Arcanedev\LaravelNestedSet\Eloquent\Collection|self[]
+     * @return \Arcanedev\LaravelNestedSet\Eloquent\Collection
      */
     public function getSiblings(array $columns = ['*'])
     {
@@ -400,7 +420,7 @@ trait NodeTrait
      *
      * @param  array  $columns
      *
-     * @return \Arcanedev\LaravelNestedSet\Eloquent\Collection|self[]
+     * @return \Arcanedev\LaravelNestedSet\Eloquent\Collection
      */
     public function getNextSiblings(array $columns = ['*'])
     {
@@ -412,7 +432,7 @@ trait NodeTrait
      *
      * @param  array  $columns
      *
-     * @return \Arcanedev\LaravelNestedSet\Eloquent\Collection|self[]
+     * @return \Arcanedev\LaravelNestedSet\Eloquent\Collection
      */
     public function getPrevSiblings(array $columns = ['*'])
     {
@@ -463,6 +483,22 @@ trait NodeTrait
     public function getDescendantCount()
     {
         return (int) ceil($this->getNodeHeight() / 2) - 1;
+    }
+
+    /**
+     * Set raw node.
+     *
+     * @param  int  $lft
+     * @param  int  $rgt
+     * @param  int  $parentId
+     *
+     * @return self
+     */
+    public function rawNode($lft, $rgt, $parentId)
+    {
+        $this->setLft($lft)->setRgt($rgt)->setParentId($parentId);
+
+        return $this->setNodeAction('raw');
     }
 
     /**
@@ -551,12 +587,12 @@ trait NodeTrait
     /**
      * Append or prepend a node to the parent.
      *
-     * @param  self  $parent
-     * @param  bool  $prepend
+     * @param  \Arcanedev\LaravelNestedSet\Contracts\Nodeable  $parent
+     * @param  bool                                            $prepend
      *
      * @return bool
      */
-    protected function actionAppendOrPrepend(self $parent, $prepend = false)
+    protected function actionAppendOrPrepend(Nodeable $parent, $prepend = false)
     {
         $parent->refreshNode();
 
@@ -681,11 +717,11 @@ trait NodeTrait
     /**
      * Append and save a node.
      *
-     * @param  self  $node
+     * @param  \Arcanedev\LaravelNestedSet\Contracts\Nodeable  $node
      *
      * @return bool
      */
-    public function appendNode(self $node)
+    public function appendNode(Nodeable $node)
     {
         return $node->appendToNode($this)->save();
     }
@@ -693,11 +729,11 @@ trait NodeTrait
     /**
      * Prepend and save a node.
      *
-     * @param  self  $node
+     * @param  \Arcanedev\LaravelNestedSet\Contracts\Nodeable  $node
      *
      * @return bool
      */
-    public function prependNode(self $node)
+    public function prependNode(Nodeable $node)
     {
         return $node->prependToNode($this)->save();
     }
@@ -705,11 +741,11 @@ trait NodeTrait
     /**
      * Append a node to the new parent.
      *
-     * @param  self  $parent
+     * @param  \Arcanedev\LaravelNestedSet\Contracts\Nodeable  $parent
      *
      * @return self
      */
-    public function appendToNode(self $parent)
+    public function appendToNode(Nodeable $parent)
     {
         return $this->appendOrPrependTo($parent);
     }
@@ -717,22 +753,24 @@ trait NodeTrait
     /**
      * Prepend a node to the new parent.
      *
-     * @param  self  $parent
+     * @param  \Arcanedev\LaravelNestedSet\Contracts\Nodeable  $parent
      *
-     * @return self
+     * @return \Arcanedev\LaravelNestedSet\Contracts\Nodeable
      */
-    public function prependToNode(self $parent)
+    public function prependToNode(Nodeable $parent)
     {
         return $this->appendOrPrependTo($parent, true);
     }
 
     /**
-     * @param  self  $parent
-     * @param  bool  $prepend
+     * Append or prepend a node to parent.
      *
-     * @return self
+     * @param  \Arcanedev\LaravelNestedSet\Contracts\Nodeable  $parent
+     * @param  bool                                            $prepend
+     *
+     * @return \Arcanedev\LaravelNestedSet\Contracts\Nodeable
      */
-    public function appendOrPrependTo(self $parent, $prepend = false)
+    public function appendOrPrependTo(Nodeable $parent, $prepend = false)
     {
         $this->assertNodeExists($parent)
              ->assertNotDescendant($parent);
@@ -745,11 +783,11 @@ trait NodeTrait
     /**
      * Insert self after a node.
      *
-     * @param  self  $node
+     * @param  \Arcanedev\LaravelNestedSet\Contracts\Nodeable  $node
      *
-     * @return self
+     * @return \Arcanedev\LaravelNestedSet\Contracts\Nodeable
      */
-    public function afterNode(self $node)
+    public function afterNode(Nodeable $node)
     {
         return $this->beforeOrAfterNode($node, true);
     }
@@ -757,22 +795,24 @@ trait NodeTrait
     /**
      * Insert self before node.
      *
-     * @param  self  $node
+     * @param  \Arcanedev\LaravelNestedSet\Contracts\Nodeable  $node
      *
-     * @return self
+     * @return \Arcanedev\LaravelNestedSet\Contracts\Nodeable
      */
-    public function beforeNode(self $node)
+    public function beforeNode(Nodeable $node)
     {
         return $this->beforeOrAfterNode($node);
     }
 
     /**
-     * @param  self  $node
-     * @param  bool  $after
+     * Set before or after a node.
      *
-     * @return self
+     * @param  \Arcanedev\LaravelNestedSet\Contracts\Nodeable  $node
+     * @param  bool                                            $after
+     *
+     * @return \Arcanedev\LaravelNestedSet\Contracts\Nodeable
      */
-    public function beforeOrAfterNode(self $node, $after = false)
+    public function beforeOrAfterNode(Nodeable $node, $after = false)
     {
         $this->assertNodeExists($node)->assertNotDescendant($node);
 
@@ -786,13 +826,13 @@ trait NodeTrait
     }
 
     /**
-     * Insert self after a node and save.
+     * Insert after a node and save.
      *
-     * @param  self  $node
+     * @param  \Arcanedev\LaravelNestedSet\Contracts\Nodeable  $node
      *
      * @return bool
      */
-    public function insertAfterNode(self $node)
+    public function insertAfterNode(Nodeable $node)
     {
         return $this->afterNode($node)->save();
     }
@@ -800,11 +840,11 @@ trait NodeTrait
     /**
      * Insert self before a node and save.
      *
-     * @param  self  $node
+     * @param  \Arcanedev\LaravelNestedSet\Contracts\Nodeable  $node
      *
      * @return bool
      */
-    public function insertBeforeNode(self $node)
+    public function insertBeforeNode(Nodeable $node)
     {
         if ( ! $this->beforeNode($node)->save()) return false;
 
@@ -812,20 +852,6 @@ trait NodeTrait
         $node->refreshNode();
 
         return true;
-    }
-
-    /**
-     * @param  int  $lft
-     * @param  int  $rgt
-     * @param  int  $parentId
-     *
-     * @return self
-     */
-    public function rawNode($lft, $rgt, $parentId)
-    {
-        $this->setLft($lft)->setRgt($rgt)->setParentId($parentId);
-
-        return $this->setNodeAction('raw');
     }
 
     /**
@@ -1030,7 +1056,7 @@ trait NodeTrait
      * @param  array  $attributes
      * @param  self   $parent
      *
-     * @return static
+     * @return self
      */
     public static function create(array $attributes = [], self $parent = null)
     {
@@ -1072,52 +1098,53 @@ trait NodeTrait
     /**
      * Get whether a node is a descendant of other node.
      *
-     * @param self $other
+     * @param  \Arcanedev\LaravelNestedSet\Contracts\Nodeable  $node
      *
      * @return bool
      */
-    public function isDescendantOf(self $other)
+    public function isDescendantOf(Nodeable $node)
     {
         return (
-            $this->getLft() > $other->getLft() &&
-            $this->getLft() < $other->getRgt()
+            $this->getLft() > $node->getLft() &&
+            $this->getLft() < $node->getRgt()
         );
     }
 
     /**
      * Get whether the node is immediate children of other node.
      *
-     * @param  self  $other
+     * @param  \Arcanedev\LaravelNestedSet\Contracts\Nodeable  $node
      *
      * @return bool
      */
-    public function isChildOf(self $other)
+    public function isChildOf(Nodeable $node)
     {
-        return $this->getParentId() == $other->getKey();
+        return $this->getParentId() == $node->getKey();
     }
 
     /**
      * Get whether the node is a sibling of another node.
      *
-     * @param  self  $other
+     * @param  \Arcanedev\LaravelNestedSet\Contracts\Nodeable  $node
      *
      * @return bool
      */
-    public function isSiblingOf(self $other)
+    public function isSiblingOf(Nodeable $node)
     {
-        return $this->getParentId() == $other->getParentId();
+        return $this->getParentId() == $node->getParentId();
     }
 
     /**
      * Get whether the node is an ancestor of other node, including immediate parent.
      *
-     * @param  self  $other
+     * @param  \Arcanedev\LaravelNestedSet\Contracts\Nodeable  $node
      *
      * @return bool
      */
-    public function isAncestorOf(self $other)
+    public function isAncestorOf(Nodeable $node)
     {
-        return $other->isDescendantOf($this);
+        /** @var \Arcanedev\LaravelNestedSet\Contracts\Nodeable $this */
+        return $node->isDescendantOf($this);
     }
 
     /**
@@ -1137,12 +1164,15 @@ trait NodeTrait
     /**
      * Assert that the node is not a descendant.
      *
-     * @param  self  $node
+     * @param  \Arcanedev\LaravelNestedSet\Contracts\Nodeable  $node
      *
      * @return self
+     *
+     * @throws \LogicException
      */
-    protected function assertNotDescendant(self $node)
+    protected function assertNotDescendant(Nodeable $node)
     {
+        /** @var \Arcanedev\LaravelNestedSet\Contracts\Nodeable $this */
         if ($node == $this || $node->isDescendantOf($this)) {
             throw new LogicException('Node must not be a descendant.');
         }
@@ -1153,11 +1183,13 @@ trait NodeTrait
     /**
      * Assert node exists.
      *
-     * @param  self  $node
+     * @param  \Arcanedev\LaravelNestedSet\Contracts\Nodeable  $node
      *
      * @return self
+     *
+     * @throws \LogicException
      */
-    protected function assertNodeExists(self $node)
+    protected function assertNodeExists(Nodeable $node)
     {
         if ( ! $node->getLft() || ! $node->getRgt()) {
             throw new LogicException('Node must exists.');
