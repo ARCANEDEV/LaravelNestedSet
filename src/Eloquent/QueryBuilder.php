@@ -676,7 +676,7 @@ class QueryBuilder extends Builder
      * Fixes the tree based on parentage info.
      * Nodes with invalid parent are saved as roots.
      *
-     * @return int The number of fixed nodes
+     * @return  int  The number of fixed nodes
      */
     public function fixTree()
     {
@@ -785,7 +785,7 @@ class QueryBuilder extends Builder
      *
      * @param  array  $columns
      *
-     * @return self
+     * @return \Illuminate\Database\Eloquent\Model|\Arcanedev\LaravelNestedSet\Contracts\Nodeable|null
      */
     public function root(array $columns = ['*'])
     {
