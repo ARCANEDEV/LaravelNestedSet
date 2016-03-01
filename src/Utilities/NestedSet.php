@@ -18,12 +18,12 @@ class NestedSet
     /**
      * The name of default lft column.
      */
-    const LFT = '_lft';
+    const LFT       = '_lft';
 
     /**
      * The name of default rgt column.
      */
-    const RGT = '_rgt';
+    const RGT       = '_rgt';
 
     /**
      * The name of default parent id column.
@@ -33,12 +33,12 @@ class NestedSet
     /**
      * Insert direction.
      */
-    const BEFORE = 1;
+    const BEFORE    = 1;
 
     /**
      * Insert direction.
      */
-    const AFTER = 2;
+    const AFTER     = 2;
 
     /* ------------------------------------------------------------------------------------------------
      |  Getters & Setters
