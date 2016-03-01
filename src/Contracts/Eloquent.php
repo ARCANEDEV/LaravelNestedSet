@@ -21,6 +21,15 @@ interface Eloquent
      */
     public function getKey();
 
+    /**
+     * Get a relationship.
+     *
+     * @param  string  $key
+     *
+     * @return mixed
+     */
+    public function getRelationValue($key);
+
     /* ------------------------------------------------------------------------------------------------
      |  Main Functions
      | ------------------------------------------------------------------------------------------------
