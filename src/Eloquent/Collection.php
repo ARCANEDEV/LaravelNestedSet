@@ -3,6 +3,7 @@
 use Arcanedev\LaravelNestedSet\NodeTrait;
 use Arcanedev\LaravelNestedSet\Utilities\NestedSet;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Support\Collection as BaseCollection;
 
 /**
  * Class     Collection
@@ -132,13 +133,14 @@ class Collection extends EloquentCollection
     /**
      * Flatten a tree into a non recursive array.
      *
-     * @param  \Arcanedev\LaravelNestedSet\Eloquent\Collection  $groupedNodes
-     * @param  mixed                                            $parentId
+     * @param  \Illuminate\Support\Collection  $groupedNodes
+     * @param  mixed                           $parentId
      *
      * @return \Arcanedev\LaravelNestedSet\Eloquent\Collection
      */
-    protected function flattenTree(self $groupedNodes, $parentId)
+    protected function flattenTree(BaseCollection $groupedNodes, $parentId)
     {
+        /** @var \Arcanedev\LaravelNestedSet\Contracts\Nodeable  $node */
         foreach ($groupedNodes->get($parentId, []) as $node) {
             $this->push($node);
             $this->flattenTree($groupedNodes, $node->getKey());
