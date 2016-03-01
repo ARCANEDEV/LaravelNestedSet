@@ -279,7 +279,7 @@ interface Nodeable extends Eloquent
      *
      * @return bool
      */
-    public function appendNode(self $node);
+    public function appendNode(Nodeable $node);
 
     /**
      * Prepend and save a node.
@@ -288,7 +288,7 @@ interface Nodeable extends Eloquent
      *
      * @return bool
      */
-    public function prependNode(self $node);
+    public function prependNode(Nodeable $node);
 
     /**
      * Append a node to the new parent.
@@ -297,7 +297,7 @@ interface Nodeable extends Eloquent
      *
      * @return self
      */
-    public function appendToNode(self $parent);
+    public function appendToNode(Nodeable $parent);
 
     /**
      * Prepend a node to the new parent.
@@ -334,7 +334,7 @@ interface Nodeable extends Eloquent
      *
      * @return self
      */
-    public function beforeNode(self $node);
+    public function beforeNode(Nodeable $node);
 
     /**
      * Set before or after a node.
@@ -344,7 +344,7 @@ interface Nodeable extends Eloquent
      *
      * @return self
      */
-    public function beforeOrAfterNode(self $node, $after = false);
+    public function beforeOrAfterNode(Nodeable $node, $after = false);
 
     /**
      * Insert after a node and save.
@@ -353,7 +353,7 @@ interface Nodeable extends Eloquent
      *
      * @return bool
      */
-    public function insertAfterNode(self $node);
+    public function insertAfterNode(Nodeable $node);
 
     /**
      * Insert before a node and save.
@@ -362,7 +362,7 @@ interface Nodeable extends Eloquent
      *
      * @return bool
      */
-    public function insertBeforeNode(self $node);
+    public function insertBeforeNode(Nodeable $node);
 
     /**
      * Move node up given amount of positions.
@@ -400,7 +400,7 @@ interface Nodeable extends Eloquent
      *
      * @return bool
      */
-    public function isDescendantOf(self $node);
+    public function isDescendantOf(Nodeable $node);
 
     /**
      * Get whether the node is immediate children of other node.
@@ -409,7 +409,7 @@ interface Nodeable extends Eloquent
      *
      * @return bool
      */
-    public function isChildOf(self $node);
+    public function isChildOf(Nodeable $node);
 
     /**
      * Get whether the node is a sibling of another node.
@@ -418,7 +418,7 @@ interface Nodeable extends Eloquent
      *
      * @return bool
      */
-    public function isSiblingOf(self $node);
+    public function isSiblingOf(Nodeable $node);
 
     /**
      * Get whether the node is an ancestor of other node, including immediate parent.
@@ -427,7 +427,7 @@ interface Nodeable extends Eloquent
      *
      * @return bool
      */
-    public function isAncestorOf(self $node);
+    public function isAncestorOf(Nodeable $node);
 
     /**
      * Get whether the node has moved since last save.
