@@ -22,6 +22,20 @@ interface Eloquent
     public function getKey();
 
     /**
+     * Get the primary key for the model.
+     *
+     * @return string
+     */
+    public function getKeyName();
+
+    /**
+     * Get the table associated with the model.
+     *
+     * @return string
+     */
+    public function getTable();
+
+    /**
      * Get a relationship.
      *
      * @param  string  $key
@@ -35,6 +49,27 @@ interface Eloquent
      | ------------------------------------------------------------------------------------------------
      */
     /**
+     * Create a new instance of the given model.
+     *
+     * @param  array  $attributes
+     * @param  bool   $exists
+     *
+     * @return static
+     */
+    public function newInstance($attributes = [], $exists = false);
+
+    /**
+     * Fill the model with an array of attributes.
+     *
+     * @param  array  $attributes
+     *
+     * @return self
+     *
+     * @throws \Illuminate\Database\Eloquent\MassAssignmentException
+     */
+    public function fill(array $attributes);
+
+    /**
      * Save the model to the database.
      *
      * @param  array  $options
@@ -42,4 +77,20 @@ interface Eloquent
      * @return bool
      */
     public function save(array $options = []);
+
+    /**
+     * Get a new query builder for the model's table.
+     *
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function newQuery();
+
+    /**
+     * Create a new Eloquent Collection instance.
+     *
+     * @param  array  $models
+     *
+     * @return \Arcanedev\LaravelNestedSet\Eloquent\Collection
+     */
+    public function newCollection(array $models = []);
 }

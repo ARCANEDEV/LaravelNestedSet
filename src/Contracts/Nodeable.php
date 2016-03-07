@@ -382,6 +382,34 @@ interface Nodeable extends Eloquent
      */
     public function down($amount = 1);
 
+    /**
+     * Get a new base query that includes deleted nodes.
+     *
+     * @param  string|null $table
+     *
+     * @return \Arcanedev\LaravelNestedSet\Eloquent\QueryBuilder
+     */
+    public function newNestedSetQuery($table = null);
+
+    /**
+     * Create a new scoped query.
+     *
+     * @param  string|null  $table
+     *
+     * @return \Arcanedev\LaravelNestedSet\Eloquent\QueryBuilder
+     */
+    public function newScopedQuery($table = null);
+
+    /**
+     * Apply the nested set scope.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Query\Builder  $query
+     * @param  string                                                                    $table
+     *
+     * @return \Arcanedev\LaravelNestedSet\Eloquent\QueryBuilder|\Illuminate\Database\Query\Builder
+     */
+    public function applyNestedSetScope($query, $table = null);
+
     /* ------------------------------------------------------------------------------------------------
      |  Check Functions
      | ------------------------------------------------------------------------------------------------
