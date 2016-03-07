@@ -6,7 +6,7 @@ use Illuminate\Database\Schema\Blueprint;
 /**
  * Class     NestedSet
  *
- * @package  Arcanedev\Taxonomies\Utilities
+ * @package  Arcanedev\LaravelNestedSet\Utilities
  * @author   ARCANEDEV <arcanedev.maroc@gmail.com>
  */
 class NestedSet
