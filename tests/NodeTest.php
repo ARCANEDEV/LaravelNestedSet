@@ -487,6 +487,17 @@ class NodeTest extends TestCase
     }
 
     /** @test */
+    public function it_can_convert_to_flat_tree()
+    {
+        $node = $this->findCategory('mobile');
+        $tree = $node->descendants()->orderBy('name')->get()->toFlatTree();
+
+        $this->assertCount(5, $tree);
+        $this->assertEquals('samsung', $tree[2]->name);
+        $this->assertEquals('galaxy',  $tree[3]->name);
+    }
+
+    /** @test */
     public function it_can_retrieves_next_node()
     {
         /** @var Category $next */
