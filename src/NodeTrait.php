@@ -11,7 +11,7 @@ use LogicException;
 /**
  * Class     NodeTrait
  *
- * @package  Arcanedev\Taxonomies\Traits
+ * @package  Arcanedev\LaravelNestedSet
  * @author   ARCANEDEV <arcanedev.maroc@gmail.com>
  *
  * @property  int                                             $id
@@ -312,7 +312,7 @@ trait NodeTrait
         if ($this->getParentId() == $value) return;
 
         if ($value) {
-            /** @var self $node */
+            /** @var \Arcanedev\LaravelNestedSet\Contracts\Nodeable $node */
             $node = $this->newScopedQuery()->findOrFail($value);
 
             $this->appendToNode($node);
@@ -1002,6 +1002,8 @@ trait NodeTrait
     }
 
     /**
+     * Create a new scoped query.
+     *
      * @param  string|null  $table
      *
      * @return \Arcanedev\LaravelNestedSet\Eloquent\QueryBuilder
@@ -1012,8 +1014,10 @@ trait NodeTrait
     }
 
     /**
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
-     * @param  string                                 $table
+     * Apply the nested set scope.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Query\Builder  $query
+     * @param  string                                                                    $table
      *
      * @return \Arcanedev\LaravelNestedSet\Eloquent\QueryBuilder|\Illuminate\Database\Query\Builder
      */

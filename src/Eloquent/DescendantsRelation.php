@@ -12,8 +12,10 @@ use InvalidArgumentException;
 /**
  * Class     DescendantsRelation
  *
- * @package  Arcanedev\Taxonomies
+ * @package  Arcanedev\LaravelNestedSet\Eloquent
  * @author   ARCANEDEV <arcanedev.maroc@gmail.com>
+ *
+ * @method  static  \Arcanedev\LaravelNestedSet\Eloquent\Collection  get(array $columns = ['*'])
  */
 class DescendantsRelation extends Relation
 {
@@ -47,9 +49,11 @@ class DescendantsRelation extends Relation
      */
     public function __construct(QueryBuilder $builder, Model $model)
     {
+        // @codeCoverageIgnoreStart
         if ( ! NestedSet::isNode($model)) {
             throw new InvalidArgumentException('Model must be node.');
         }
+        // @codeCoverageIgnoreEnd
 
         parent::__construct($builder, $model);
     }

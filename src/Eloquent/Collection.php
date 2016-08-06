@@ -8,7 +8,7 @@ use Illuminate\Support\Collection as BaseCollection;
 /**
  * Class     Collection
  *
- * @package  Arcanedev\Taxonomies\Utilities
+ * @package  Arcanedev\LaravelNestedSet\Eloquent
  * @author   ARCANEDEV <arcanedev.maroc@gmail.com>
  */
 class Collection extends EloquentCollection
@@ -32,9 +32,7 @@ class Collection extends EloquentCollection
 
         /** @var  NodeTrait|\Illuminate\Database\Eloquent\Model  $node */
         foreach ($this->items as $node) {
-            if ( ! $node->getParentId()) {
-                $node->setRelation('parent', null);
-            }
+            if ($node->getParentId() === null) $node->setRelation('parent', null);
 
             $children = $groupedNodes->get($node->getKey(), []);
 

@@ -1,6 +1,5 @@
 <?php namespace Arcanedev\LaravelNestedSet\Eloquent;
 
-use Arcanedev\LaravelNestedSet\NodeTrait;
 use Arcanedev\LaravelNestedSet\Utilities\NestedSet;
 use Arcanedev\LaravelNestedSet\Utilities\TreeHelper;
 use Illuminate\Database\Eloquent\Builder;
@@ -14,6 +13,8 @@ use LogicException;
  *
  * @package  Arcanedev\LaravelNestedSet\Eloquent
  * @author   ARCANEDEV <arcanedev.maroc@gmail.com>
+ *
+ * @method  static  \Arcanedev\LaravelNestedSet\Eloquent\QueryBuilder  whereIn(string $column, mixed $values, string $boolean = 'and', bool $not = false)
  */
 class QueryBuilder extends Builder
 {
@@ -24,7 +25,7 @@ class QueryBuilder extends Builder
     /**
      * The model being queried.
      *
-     * @var \Arcanedev\LaravelNestedSet\NodeTrait
+     * @var \Arcanedev\LaravelNestedSet\Contracts\Nodeable
      */
     protected $model;
 
@@ -166,27 +167,6 @@ class QueryBuilder extends Builder
     }
 
     /**
-     * Add constraint statement to descendants of specified node.
-     *
-     * @param  mixed   $id
-     * @param  string  $boolean
-     * @param  bool    $not
-     *
-     * @return self
-     */
-    public function whereDescendantOf($id, $boolean = 'and', $not = false)
-    {
-        $data = NestedSet::isNode($id)
-            ? $id->getBounds()
-            : $this->model->newNestedSetQuery()->getPlainNodeData($id, true);
-
-        // Don't include the node
-        ++$data[0];
-
-        return $this->whereNodeBetween($data, $boolean, $not);
-    }
-
-    /**
      * @param  mixed  $id
      *
      * @return self
@@ -214,6 +194,26 @@ class QueryBuilder extends Builder
     public function orWhereNotDescendantOf($id)
     {
         return $this->whereDescendantOf($id, 'or', true);
+    }
+
+    /**
+     * Add constraint statement to descendants of specified node.
+     *
+     * @param  mixed   $id
+     * @param  string  $boolean
+     * @param  bool    $not
+     *
+     * @return self
+     */
+    public function whereDescendantOf($id, $boolean = 'and', $not = false)
+    {
+        $data = NestedSet::isNode($id)
+            ? $id->getBounds()
+            : $this->model->newNestedSetQuery()->getPlainNodeData($id, true);
+
+        ++$data[0]; // Don't include the node
+
+        return $this->whereNodeBetween($data, $boolean, $not);
     }
 
     /**
@@ -378,8 +378,7 @@ class QueryBuilder extends Builder
      */
     public function defaultOrder($dir = 'asc')
     {
-        $this->query->orders = null;
-
+        $this->query->orders = [];
         $this->query->orderBy($this->model->getLftName(), $dir);
 
         return $this;
@@ -388,7 +387,7 @@ class QueryBuilder extends Builder
     /**
      * Order by reversed node position.
      *
-     * @return $this
+     * @return self
      */
     public function reversed()
     {
@@ -408,13 +407,15 @@ class QueryBuilder extends Builder
         list($lft, $rgt) = $this->model->newNestedSetQuery()
                                        ->getPlainNodeData($key, true);
 
+        // @codeCoverageIgnoreStart
         if ($lft < $position && $position <= $rgt) {
             throw new LogicException('Cannot move node into itself.');
         }
+        // @codeCoverageIgnoreEnd
 
         // Get boundaries of nodes that should be moved to new position
-        $from = min($lft, $position);
-        $to   = max($rgt, $position - 1);
+        $from     = min($lft, $position);
+        $to       = max($rgt, $position - 1);
 
         // The height of node that is being moved
         $height   = $rgt - $lft + 1;
@@ -429,7 +430,8 @@ class QueryBuilder extends Builder
 
         if ($position > $lft) {
             $height *= -1;
-        } else {
+        }
+        else {
             $distance *= -1;
         }
 
@@ -568,7 +570,7 @@ class QueryBuilder extends Builder
     /**
      * Get the duplicates errors query.
      *
-     * @return \Illuminate\Database\Query\Builder
+     * @return \Arcanedev\LaravelNestedSet\Eloquent\QueryBuilder|\Illuminate\Database\Query\Builder
      */
     protected function getDuplicatesQuery()
     {
@@ -601,8 +603,7 @@ class QueryBuilder extends Builder
         $table        = $this->wrappedTable();
         $keyName      = $this->wrappedKey();
         $parentIdName = $this->query->raw($this->model->getParentIdName());
-        $query        = $this->model
-            ->newNestedSetQuery('c')
+        $query        = $this->model->newNestedSetQuery('c')
             ->toBase()
             ->from($this->query->raw("{$table} c, {$table} p, $table m"))
             ->whereRaw("c.{$parentIdName}=p.{$keyName}")
@@ -680,17 +681,15 @@ class QueryBuilder extends Builder
      */
     public function fixTree()
     {
-        $columns   = [
-            $this->model->getKeyName(),
-            $this->model->getParentIdName(),
-            $this->model->getLftName(),
-            $this->model->getRgtName(),
-        ];
-
         $dictionary = $this->defaultOrder()
-                ->get($columns)
-                ->groupBy($this->model->getParentIdName())
-                ->all();
+            ->get([
+                $this->model->getKeyName(),
+                $this->model->getParentIdName(),
+                $this->model->getLftName(),
+                $this->model->getRgtName(),
+            ])
+            ->groupBy($this->model->getParentIdName())
+            ->all();
 
         return TreeHelper::fixNodes($dictionary);
     }
@@ -706,78 +705,9 @@ class QueryBuilder extends Builder
      */
     public function rebuildTree(array $data, $delete = false)
     {
-        $existing   = $this->get()->getDictionary();
-        $dictionary = [];
-        $this->buildRebuildDictionary($dictionary, $data, $existing);
+        $existing = $this->get()->getDictionary();
 
-        if ( ! empty($existing)) {
-            if ($delete) {
-                $this->model
-                    ->newScopedQuery()
-                    ->whereIn($this->model->getKeyName(), array_keys($existing))
-                    ->forceDelete();
-            } else {
-                /** @var NodeTrait $model */
-                foreach ($existing as $model) {
-                    $dictionary[$model->getParentId()][] = $model;
-                }
-            }
-        }
-
-        return TreeHelper::fixNodes($dictionary);
-    }
-
-    /**
-     * @param  array  $dictionary
-     * @param  array  $data
-     * @param  array  $existing
-     * @param  mixed  $parentId
-     */
-    protected function buildRebuildDictionary(
-        array &$dictionary,
-        array $data,
-        array &$existing,
-        $parentId = null
-    ) {
-        $keyName = $this->model->getKeyName();
-
-        foreach ($data as $itemData) {
-            if ( ! isset($itemData[$keyName])) {
-                $model = $this->model->newInstance();
-                // We will save it as raw node since tree will be fixed
-                $model->rawNode(0, 0, $parentId);
-            } else {
-                if ( ! isset($existing[$key = $itemData[$keyName]])) {
-                    throw new ModelNotFoundException;
-                }
-                $model = $existing[$key];
-                unset($existing[$key]);
-            }
-
-            $model->fill($itemData)->save();
-            $dictionary[$parentId][] = $model;
-
-            if ( ! isset($itemData['children'])) {
-                continue;
-            }
-
-            $this->buildRebuildDictionary(
-                $dictionary,
-                $itemData['children'],
-                $existing,
-                $model->getKey()
-            );
-        }
-    }
-
-    /**
-     * @param  string|null  $table
-     *
-     * @return self
-     */
-    public function applyNestedSetScope($table = null)
-    {
-        return $this->model->applyNestedSetScope($this, $table);
+        return TreeHelper::rebuild($data, $existing, $this->model, $delete);
     }
 
     /**
