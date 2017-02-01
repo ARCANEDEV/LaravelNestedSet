@@ -35,7 +35,7 @@ trait SoftDeleteTrait
         if (is_null($softDelete)) {
             $instance = new static;
 
-            return $softDelete = method_exists($instance, 'withTrashed');
+            return $softDelete = method_exists($instance, 'bootSoftDeletes');
         }
 
         return $softDelete;

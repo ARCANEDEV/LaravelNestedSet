@@ -197,7 +197,7 @@ class QueryBuilder extends Builder
     }
 
     /**
-     * Add constraint statement to descendants of specified node.
+     * Add constraint statement to descendants of specified node or self.
      *
      * @param  mixed   $id
      * @param  string  $boolean
@@ -205,13 +205,28 @@ class QueryBuilder extends Builder
      *
      * @return self
      */
-    public function whereDescendantOf($id, $boolean = 'and', $not = false)
+    public function whereDescendantOrSelf($id, $boolean = 'and', $not = false)
+    {
+        return $this->whereDescendantOf($id, $boolean, $not, true);
+    }
+
+    /**
+     * Add constraint statement to descendants of specified node.
+     *
+     * @param  mixed   $id
+     * @param  string  $boolean
+     * @param  bool    $not
+     * @param  bool    $andSelf
+     *
+     * @return self
+     */
+    public function whereDescendantOf($id, $boolean = 'and', $not = false, $andSelf = false)
     {
         $data = NestedSet::isNode($id)
             ? $id->getBounds()
             : $this->model->newNestedSetQuery()->getPlainNodeData($id, true);
 
-        ++$data[0]; // Don't include the node
+        if ( ! $andSelf) ++$data[0];
 
         return $this->whereNodeBetween($data, $boolean, $not);
     }
@@ -221,17 +236,31 @@ class QueryBuilder extends Builder
      *
      * @param  mixed  $id
      * @param  array  $columns
+     * @param  bool   $andSelf
      *
      * @return \Arcanedev\LaravelNestedSet\Eloquent\Collection
      */
-    public function descendantsOf($id, array $columns = ['*'])
+    public function descendantsOf($id, array $columns = ['*'], $andSelf = false)
     {
         try {
-            return $this->whereDescendantOf($id)->get($columns);
+            return $this->whereDescendantOf($id, 'and', false, $andSelf)->get($columns);
         }
         catch (ModelNotFoundException $e) {
             return $this->model->newCollection();
         }
+    }
+
+    /**
+     * Get descendants of self node.
+     *
+     * @param  mixed  $id
+     * @param  array  $columns
+     *
+     * @return \Arcanedev\LaravelNestedSet\Eloquent\Collection
+     */
+    public function descendantsAndSelf($id, array $columns = ['*'])
+    {
+        return $this->descendantsOf($id, $columns, true);
     }
 
     /**

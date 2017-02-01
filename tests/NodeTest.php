@@ -33,6 +33,8 @@ class NodeTest extends TestCase
     public function tearDown()
     {
         $this->table('categories')->truncate();
+
+        parent::tearDown();
     }
 
     /* ------------------------------------------------------------------------------------------------
@@ -222,7 +224,7 @@ class NodeTest extends TestCase
     public function it_can_get_ancestors_without_node_itself()
     {
         $category  = $this->findCategory('apple');
-        $ancestors = $category->ancestors()->lists('name');
+        $ancestors = $category->ancestors()->pluck('name');
 
         $this->assertCount(2, $ancestors);
         $this->assertEquals(['store', 'notebooks'], $ancestors->toArray());
@@ -232,7 +234,7 @@ class NodeTest extends TestCase
     public function it_can_get_ancestors_without_node_itself_by_static_method()
     {
         /** @var  \Illuminate\Support\Collection  $ancestors */
-        $ancestors = Category::ancestorsOf(3)->lists('name');
+        $ancestors = Category::ancestorsOf(3)->pluck('name');
 
         $this->assertCount(2, $ancestors);
         $this->assertEquals(['store', 'notebooks'], $ancestors->toArray());
@@ -242,7 +244,7 @@ class NodeTest extends TestCase
     public function it_can_gets_ancestors_direct()
     {
         /** @var  \Illuminate\Support\Collection  $ancestors */
-        $ancestors = Category::find(8)->getAncestors()->lists('id');
+        $ancestors = Category::find(8)->getAncestors()->pluck('id');
 
         $this->assertCount(3, $ancestors);
         $this->assertEquals([1, 5, 7], $ancestors->toArray());
@@ -256,28 +258,33 @@ class NodeTest extends TestCase
 
         $this->assertCount(
             $category->getDescendantCount(),
-            $category->descendants()->lists('name')
+            $category->descendants()->pluck('name')
         );
         $this->assertEquals(
             $expected,
-            $category->descendants()->lists('name')->toArray()
+            $category->descendants()->pluck('name')->toArray()
         );
 
         $this->assertCount(
             $category->getDescendantCount(),
-            $category->getDescendants()->lists('name')
+            $category->getDescendants()->pluck('name')
         );
         $this->assertEquals(
             $expected,
-            $category->getDescendants()->lists('name')->toArray()
+            $category->getDescendants()->pluck('name')->toArray()
         );
+
+        $descendants = Category::descendantsAndSelf(7)->pluck('name');
+        $expected = ['samsung', 'galaxy'];
+
+        $this->assertEquals($expected, $descendants->all());
     }
 
     /** @test */
     public function it_can_works_with_depth()
     {
         /** @var \Illuminate\Support\Collection $categories */
-        $categories = Category::withDepth()->limit(4)->lists('depth');
+        $categories = Category::withDepth()->limit(4)->pluck('depth');
         $expected   = [0, 1, 2, 2];
 
         $this->assertEquals($expected, $categories->toArray());
@@ -401,14 +408,14 @@ class NodeTest extends TestCase
     {
         $node = $this->findCategory('samsung');
 
-        $this->assertEquals([6, 9, 10], $node->siblings()->lists('id')->toArray());
-        $this->assertEquals([6, 9, 10], $node->getSiblings()->lists('id')->toArray());
+        $this->assertEquals([6, 9, 10], $node->siblings()->pluck('id')->toArray());
+        $this->assertEquals([6, 9, 10], $node->getSiblings()->pluck('id')->toArray());
 
-        $this->assertEquals([9, 10],    $node->nextSiblings()->lists('id')->toArray());
-        $this->assertEquals([9, 10],    $node->getNextSiblings()->lists('id')->toArray());
+        $this->assertEquals([9, 10],    $node->nextSiblings()->pluck('id')->toArray());
+        $this->assertEquals([9, 10],    $node->getNextSiblings()->pluck('id')->toArray());
 
-        $this->assertEquals([6],        $node->prevSiblings()->lists('id')->toArray());
-        $this->assertEquals([6],        $node->getPrevSiblings()->lists('id')->toArray());
+        $this->assertEquals([6],        $node->prevSiblings()->pluck('id')->toArray());
+        $this->assertEquals([6],        $node->getPrevSiblings()->pluck('id')->toArray());
 
         $this->assertEquals(9, $node->getNextSibling()->id);
         $this->assertEquals(6, $node->getPrevSibling()->id);
@@ -648,7 +655,7 @@ class NodeTest extends TestCase
     public function it_can_get_ancestors_by_a_node()
     {
         $category  = $this->findCategory('apple');
-        $ancestors = Category::whereAncestorOf($category)->lists('id');
+        $ancestors = Category::whereAncestorOf($category)->pluck('id');
 
         $this->assertEquals([1, 2], $ancestors->toArray());
     }
@@ -657,7 +664,7 @@ class NodeTest extends TestCase
     public function it_can_get_descendants_by_a_node()
     {
         $category   = $this->findCategory('notebooks');
-        $categories = Category::whereDescendantOf($category)->lists('id');
+        $categories = Category::whereDescendantOf($category)->pluck('id');
 
         $this->assertEquals([3, 4], $categories->toArray());
     }

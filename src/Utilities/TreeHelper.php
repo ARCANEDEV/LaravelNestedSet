@@ -3,6 +3,7 @@
 use Arcanedev\LaravelNestedSet\Contracts\Nodeable;
 use Arcanedev\LaravelNestedSet\NodeTrait;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Arr;
 
 /**
  * Class     TreeHelper
@@ -87,7 +88,7 @@ class TreeHelper
         foreach ($data as $itemData) {
             $node = self::retrieveNode($existing, $model, $parentId, $itemData, $keyName);
 
-            $node->fill($itemData)->save();
+            $node->fill(Arr::except($itemData, 'children'))->save();
             $dictionary[$parentId][] = $node;
 
             if (isset($itemData['children'])) {

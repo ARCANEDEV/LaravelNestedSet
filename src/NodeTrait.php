@@ -14,15 +14,15 @@ use LogicException;
  * @package  Arcanedev\LaravelNestedSet
  * @author   ARCANEDEV <arcanedev.maroc@gmail.com>
  *
- * @property  int                                             $id
- * @property  int                                             $_lft
- * @property  int                                             $_rgt
- * @property  int                                             $parent_id
- * @property  array                                           $attributes
- * @property  array                                           $original
- * @property  bool                                            $exists
- * @property  \Arcanedev\LaravelNestedSet\Contracts\Nodeable  $parent
- * @property  \Illuminate\Database\Eloquent\Collection        $children
+ * @property  int                                             id
+ * @property  int                                             _lft
+ * @property  int                                             _rgt
+ * @property  int                                             parent_id
+ * @property  array                                           attributes
+ * @property  array                                           original
+ * @property  bool                                            exists
+ * @property  \Arcanedev\LaravelNestedSet\Contracts\Nodeable  parent
+ * @property  \Illuminate\Database\Eloquent\Collection        children
  *
  * @method  static  bool                                               isBroken()
  * @method  static  array                                              getNodeData($id, $required = false)
@@ -37,6 +37,7 @@ use LogicException;
  * @method  static  \Arcanedev\LaravelNestedSet\Eloquent\QueryBuilder  whereDescendantOf(mixed $id, string $boolean = 'and', bool $not = false)
  * @method  static  \Arcanedev\LaravelNestedSet\Eloquent\QueryBuilder  whereAncestorOf(mixed $id)
  * @method  static  \Arcanedev\LaravelNestedSet\Eloquent\QueryBuilder  whereIsRoot()
+ * @method  static  \Arcanedev\LaravelNestedSet\Eloquent\QueryBuilder  descendantsAndSelf(mixed $id, array $columns = ['*'])
  * @method  static  array                                              countErrors()
  *
  * @method  \Illuminate\Database\Eloquent\Relations\BelongsTo          belongsTo(string $related, string $foreignKey = null, string $otherKey = null, string $relation = null)
@@ -86,45 +87,24 @@ trait NodeTrait
     public static function bootNodeTrait()
     {
         static::saving(function ($model) {
-            /** @var self $model */
-            $model->getConnection()->beginTransaction();
-
             return $model->callPendingAction();
         });
 
-        static::saved(function ($model) {
-            /** @var self $model */
-            $model->getConnection()->commit();
-        });
-
         static::deleting(function ($model) {
-            /** @var self $model */
-            $model->getConnection()->beginTransaction();
-
             // We will need fresh data to delete node safely
             $model->refreshNode();
         });
 
         static::deleted(function ($model) {
-            /** @var self $model */
             $model->deleteDescendants();
-
-            $model->getConnection()->commit();
         });
 
         if (static::usesSoftDelete()) {
             static::restoring(function ($model) {
-                /** @var self $model */
-                $model->getConnection()->beginTransaction();
-
                 static::$deletedAt = $model->{$model->getDeletedAtColumn()};
             });
-
             static::restored(function ($model) {
-                /** @var self $model */
                 $model->restoreDescendants(static::$deletedAt);
-
-                $model->getConnection()->commit();
             });
         }
     }
@@ -175,6 +155,29 @@ trait NodeTrait
         return $this->newScopedQuery()
             ->where($this->getKeyName(), '<>', $this->getKey())
             ->where($this->getParentIdName(), '=', $this->getParentId());
+    }
+
+    /**
+     * Get query for the node siblings and the node itself.
+     *
+     * @return \Arcanedev\LaravelNestedSet\Eloquent\QueryBuilder
+     */
+    public function siblingsAndSelf()
+    {
+        return $this->newScopedQuery()
+            ->where($this->getParentIdName(), '=', $this->getParentId());
+    }
+
+    /**
+     * Get the node siblings and the node itself.
+     *
+     * @param  array  $columns
+     *
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    public function getSiblingsAndSelf(array $columns = ['*'])
+    {
+        return $this->siblingsAndSelf()->get($columns);
     }
 
     /* ------------------------------------------------------------------------------------------------
@@ -348,7 +351,10 @@ trait NodeTrait
      */
     protected function dirtyBounds()
     {
-        return $this->setLft(null)->setRgt(null);
+        $this->original[$this->getLftName()] = null;
+        $this->original[$this->getRgtName()] = null;
+
+        return $this;
     }
 
     /**
@@ -532,8 +538,6 @@ trait NodeTrait
 
     /**
      * Call pending action.
-     *
-     * @return null|false
      */
     protected function callPendingAction()
     {
@@ -632,7 +636,6 @@ trait NodeTrait
         $attributes = $this->newNestedSetQuery()->getNodeData($this->getKey());
 
         $this->attributes = array_merge($this->attributes, $attributes);
-        $this->original   = array_merge($this->original,   $attributes);
     }
 
     /**
