@@ -775,7 +775,7 @@ class NodeTest extends TestCase
     /** @test */
     public function it_can_query_descendants_Relation()
     {
-        $nodes = Category::has('descendants')->whereIn('id', [ 2, 3 ])->get();
+        $nodes = Category::has('descendants')->whereIn('id', [2, 3])->get();
 
         $this->assertEquals(1, $nodes->count());
         $this->assertEquals(2, $nodes->first()->getKey());
