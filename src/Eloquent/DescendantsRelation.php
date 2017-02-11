@@ -19,9 +19,9 @@ use InvalidArgumentException;
  */
 class DescendantsRelation extends Relation
 {
-    /* ------------------------------------------------------------------------------------------------
+    /* -----------------------------------------------------------------
      |  Properties
-     | ------------------------------------------------------------------------------------------------
+     | -----------------------------------------------------------------
      */
     /**
      * The Eloquent query builder instance.
@@ -37,9 +37,9 @@ class DescendantsRelation extends Relation
      */
     protected $parent;
 
-    /* ------------------------------------------------------------------------------------------------
+    /* -----------------------------------------------------------------
      |  Constructor
-     | ------------------------------------------------------------------------------------------------
+     | -----------------------------------------------------------------
      */
     /**
      * DescendantsRelation constructor.
@@ -58,6 +58,10 @@ class DescendantsRelation extends Relation
         parent::__construct($builder, $model);
     }
 
+    /* -----------------------------------------------------------------
+     |  Main Methods
+     | -----------------------------------------------------------------
+     */
     /**
      * Add the constraints for a relationship query.
      *
@@ -67,7 +71,7 @@ class DescendantsRelation extends Relation
      *
      * @return \Illuminate\Database\Eloquent\Builder
      */
-    public function getRelationQuery(
+    public function getRelationExistenceQuery(
         EloquentBuilder $query,
         EloquentBuilder $parent,
         $columns = ['*']
@@ -79,12 +83,29 @@ class DescendantsRelation extends Relation
 
         $query->from("$table as $hash");
 
-        $table = $this->wrap($table);
-        $hash  = $this->wrap($hash);
-        $lft   = $this->wrap($this->parent->getLftName());
-        $rgt   = $this->wrap($this->parent->getRgtName());
+        $grammar = $query->getQuery()->getGrammar();
+
+        $table = $grammar->wrapTable($table);
+        $hash  = $grammar->wrapTable($hash);
+        $lft   = $grammar->wrap($this->parent->getLftName());
+        $rgt   = $grammar->wrap($this->parent->getRgtName());
 
         return $query->whereRaw("{$hash}.{$lft} between {$table}.{$lft} + 1 and {$table}.{$rgt}");
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @param  \Illuminate\Database\Eloquent\Builder  $parent
+     * @param  array|mixed                            $columns
+     *
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function getRelationQuery(
+        EloquentBuilder $query,
+        EloquentBuilder $parent,
+        $columns = ['*']
+    ) {
+        return $this->getRelationExistenceQuery($query, $parent, $columns);
     }
 
     /**
@@ -102,9 +123,7 @@ class DescendantsRelation extends Relation
      */
     public function addConstraints()
     {
-        if ( ! static::$constraints) {
-            return;
-        }
+        if ( ! static::$constraints) return;
 
         $this->query->whereDescendantOf($this->parent);
     }
@@ -151,10 +170,9 @@ class DescendantsRelation extends Relation
     public function match(array $models, EloquentCollection $results, $relation)
     {
         foreach ($models as $model) {
-            /** @var Model $model */
+            /** @var  \Illuminate\Database\Eloquent\Model  $model */
             $model->setRelation(
-                $relation,
-                $this->getDescendantsForModel($model, $results)
+                $relation, $this->getDescendantsForModel($model, $results)
             );
         }
 
@@ -175,7 +193,7 @@ class DescendantsRelation extends Relation
      * @param  \Illuminate\Database\Eloquent\Model       $model
      * @param  \Illuminate\Database\Eloquent\Collection  $results
      *
-     * @return \Arcanedev\LaravelNestedSet\Eloquent\Collection
+     * @return \Arcanedev\LaravelNestedSet\Eloquent\Collection|\Illuminate\Database\Eloquent\Collection
      */
     protected function getDescendantsForModel(Model $model, EloquentCollection $results)
     {

@@ -18,9 +18,9 @@ use LogicException;
  */
 class QueryBuilder extends Builder
 {
-    /* ------------------------------------------------------------------------------------------------
+    /* -----------------------------------------------------------------
      |  Properties
-     | ------------------------------------------------------------------------------------------------
+     | -----------------------------------------------------------------
      */
     /**
      * The model being queried.
@@ -29,9 +29,9 @@ class QueryBuilder extends Builder
      */
     protected $model;
 
-    /* ------------------------------------------------------------------------------------------------
-     |  Main Functions
-     | ------------------------------------------------------------------------------------------------
+    /* -----------------------------------------------------------------
+     |  Main Methods
+     | -----------------------------------------------------------------
      */
     /**
      * Get node's `lft` and `rgt` values.
@@ -131,7 +131,7 @@ class QueryBuilder extends Builder
      * @param  mixed  $id
      * @param  array  $columns
      *
-     * @return self
+     * @return self|\Illuminate\Database\Eloquent\Collection
      */
     public function ancestorsOf($id, array $columns = ['*'])
     {
@@ -238,7 +238,7 @@ class QueryBuilder extends Builder
      * @param  array  $columns
      * @param  bool   $andSelf
      *
-     * @return \Arcanedev\LaravelNestedSet\Eloquent\Collection
+     * @return \Arcanedev\LaravelNestedSet\Eloquent\Collection|\Illuminate\Database\Eloquent\Collection
      */
     public function descendantsOf($id, array $columns = ['*'], $andSelf = false)
     {
@@ -276,7 +276,8 @@ class QueryBuilder extends Builder
             $value = '?';
 
             $this->query->addBinding($id->getLft());
-        } else {
+        }
+        else {
             $valueQuery = $this->model
                 ->newQuery()
                 ->toBase()
