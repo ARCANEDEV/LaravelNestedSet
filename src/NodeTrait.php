@@ -1,6 +1,7 @@
 <?php namespace Arcanedev\LaravelNestedSet;
 
 use Arcanedev\LaravelNestedSet\Contracts\Nodeable;
+use Arcanedev\LaravelNestedSet\Eloquent\AncestorsRelation;
 use Arcanedev\LaravelNestedSet\Eloquent\DescendantsRelation;
 use Arcanedev\LaravelNestedSet\Traits\EloquentTrait;
 use Arcanedev\LaravelNestedSet\Traits\SoftDeleteTrait;
@@ -685,12 +686,11 @@ trait NodeTrait
     /**
      * Get query for ancestors to the node not including the node itself.
      *
-     * @return \Arcanedev\LaravelNestedSet\Eloquent\QueryBuilder
+     * @return \Arcanedev\LaravelNestedSet\Eloquent\AncestorsRelation
      */
     public function ancestors()
     {
-        return $this->newScopedQuery()
-            ->whereAncestorOf($this)->defaultOrder();
+        return new AncestorsRelation($this->newScopedQuery(), $this);
     }
 
     /**
@@ -710,11 +710,9 @@ trait NodeTrait
      */
     public function saveAsRoot()
     {
-        if ($this->exists && $this->isRoot()) {
-            return $this->save();
-        }
-
-        return $this->makeRoot()->save();
+        return ($this->exists && $this->isRoot())
+            ? $this->save()
+            : $this->makeRoot()->save();
     }
 
     /**
